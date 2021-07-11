@@ -1,0 +1,16 @@
+{
+  "name": "add-torrent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@techmovie/trans-client-server": "^1.3.7",
+    "request-promise": "^4.2.5",
+    "wx-server-sdk": "^1.8.3"
+  }
+}

@@ -1,0 +1,166 @@
+<style lang="scss">
+page {
+  height: 100%;
+}
+.weui-slideview__btn {
+  background: none !important;
+}
+</style>
+
+<script>
+  import wepy from 'wepy'
+  import 'wepy-async-function'
+  import logger from './utils/log'
+  import {api} from './utils'
+  export default class extends wepy.app {
+    constructor() {
+      super()
+      this.use('promisify')
+    }
+    config = {
+      pages: [
+        'pages/index',
+        'pages/serverList',
+        'pages/torrentInfo',
+        'pages/setting',
+        'pages/me',
+        'pages/addServer',
+        'pages/addTorrent',
+        'pages/help',
+        'pages/networkSetting'
+      ],
+      tabBar: {
+        color: '#333333',
+        selectedColor: '#0096FF',
+        backgroundColor: '#F4F7FF',
+        borderStyle: 'white',
+        list: [
+          {
+            pagePath: 'pages/index',
+            text: '',
+            iconPath: '/asset/images/torrent.png',
+            selectedIconPath: '/asset/images/torrent-select.png'
+          },
+          {
+            pagePath: 'pages/serverList',
+            text: '',
+            iconPath: '/asset/images/server.png',
+            selectedIconPath: '/asset/images/server-select.png'
+          },
+          {
+            pagePath: 'pages/me',
+            text: '',
+            iconPath: '/asset/images/me.png',
+            selectedIconPath: '/asset/images/me-select.png'
+          }
+        ]
+      },
+      'networkTimeout': {
+        'request': 12000
+      },
+      window: {
+        backgroundTextStyle: 'light',
+        navigationBarBackgroundColor: '#0065E6',
+        navigationBarTitleText: 'TransClient',
+        navigationBarTextStyle: 'white'
+      }
+    }
+    globalData = {
+      isLoading: false
+    }
+    checkSkey = () => {
+      console.log('checkSkey')
+      try {
+        const skey = wx.getStorageSync('skey')
+        if (skey) {
+          this.checkSession()
+        } else {
+          this.wxLogin()
+          console.log('wxLogin')
+        }
+      } catch (e) {
+        logger.warn('checkSkey失败', e)
+      }
+    }
+    checkSession = () => {
+      const _ = this
+  
+      wx.checkSession({
+        success() {
+          _.getUserInfo()
+          console.log('checkSession')
+        },
+        fail() {
+          _.wxLogin()
+        }
+      })
+    }
+    wxLogin = () => {
+      wx.login().then(async (res) => {
+        if (res.code) {
+          console.log('Try login')
+          try {
+            const response = await wx.cloud.callFunction({
+              name: 'login',
+              data: {
+                code: res.code
+              }
+            })
+  
+            if (response.result.code === 1) {
+              wx.setStorage({
+                key: 'skey',
+                data: response.result.data.skey
+              })
+            } else {
+              throw new Error('获取skey失败')
+            }
+            this.getUserInfo()
+          } catch (error) {
+            logger.warn('云函数login失败', error)
+          }
+        }
+      }).catch(err => {
+        logger.warn('wxlogin失败', err)
+      })
+    }
+    getUserInfo= async () => {
+      try {
+        const res = await api('get-user-info')
+        wx.setStorage({
+          key: 'setting',
+          data: {
+            ...res.data
+          }
+        })
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+    onLaunch() {
+      wx.cloud.init({
+        env: 'product-1gapq5os57c5165b',
+        traceUser: true
+      })
+      const updateManager = wx.getUpdateManager()
+      updateManager.onUpdateReady(function () {
+        wx.showModal({
+          title: '更新提示',
+          content: '新版本已经准备好，是否重启应用？',
+          success: function (res) {
+            if (res.confirm) {
+              // 新的版本已经下载好，调用 applyUpdate 应用新版本并重启
+              updateManager.applyUpdate()
+            }
+          }
+        })
+      })
+      // 首先检查是否存储skey
+      this.checkSkey()
+    }
+  }
+</script>

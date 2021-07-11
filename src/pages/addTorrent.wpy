@@ -1,0 +1,509 @@
+
+<template>
+  <view class="add-torrent-page">
+    <form @submit="addTorrent">
+      <view class="form-container">
+        <view class="form-item">
+          <view class="item-label">
+            <image src="../asset/images/upload-type.png"></image>
+            <text>上传模式</text>
+          </view>
+          <radio-group class="radio-group"
+                       @change="handleTypeChange">
+            <label>
+              <radio class="radio"
+                     value="url"
+                     color="#00B1FF"
+                     checked="{{formData.type==='url'}}"></radio>
+              <text>链接上传</text>
+            </label>
+            <label>
+              <radio class="radio"
+                     value="file"
+                     color="#00B1FF"
+                     checked="{{formData.type==='file'}}">
+              </radio>
+              <text>本地上传</text>
+            </label>
+          </radio-group>
+        </view>
+        <view class="form-item"
+              @tap="chooseFile"
+              wx:if="{{formData.type==='file'}}">
+          <view class="item-label choose-file">
+            <image src="../asset/images/file-upload.png"></image>
+            <text class="label">上传文件</text>
+            <text class="desc"
+                  wx:if="{{!fileData.name}}">从微信对话中选择</text>
+          </view>
+          <view class="more">
+            <text class="file-name">{{fileData.name}}</text>
+            <image src="../asset/images/arrow-right.png"></image>
+          </view>
+        </view>
+        <view class="form-item url-textarea"
+              wx:else>
+          <view class="item-label">
+            <text class="label">链接地址</text>
+          </view>
+          <input value="{{formData.url}}"
+                 @input="handleUrlChange"
+                 placeholder-class="placeholder"
+                 placeholder="输入下载链接"></input>
+          <view class="clear-icon"
+                @tap="clearUrl">
+            <image wx:if="{{formData.url}}"
+                   src="../asset/images/clear.png"></image>
+          </view>
+
+        </view>
+      </view>
+      <view class="form-container">
+        <view class="form-item">
+          <text>保存路径</text>
+          <input @input="handleSavePathChange"
+                 value="{{formData.savePath}}"
+                 placeholder-class="input-placeholder"
+                 adjust-position='{{true}}' />
+        </view>
+        <view class="form-item"
+              wx:if="{{clientType === 'qbitorrent'}}"
+              @tap="handleRootFolderTap">
+          <text>创建子文件夹</text>
+          <checkbox checked="{{formData.rootFolder}}"
+                    color="#0280FF">
+          </checkbox>
+        </view>
+      </view>
+      <view class="form-container"
+            wx:if="{{clientType!=='utorrent'&&clientType!=='downloadStation'}}">
+        <view class="form-item"
+              @tap="handlePausedTap">
+          <text>自动开始</text>
+          <checkbox checked="{{!formData.paused}}"
+                    color="#0280FF">
+          </checkbox>
+        </view>
+        <view wx:if="{{clientType === 'qbitorrent'}}"
+              class="form-item"
+              @tap="handleHashSkip">
+          <text>跳过哈希检查</text>
+          <checkbox checked="{{formData.skipCheck}}"
+                    color="#0280FF">
+          </checkbox>
+        </view>
+      </view>
+      <view class="form-container"
+            wx:if="{{showSpeed}}">
+        <view class="form-item">
+          <text>限制上传速率</text>
+          <input type="number"
+                 @input="handleUpLimitChange"
+                 value="{{formData.upLimit}}"
+                 placeholder-class="input-placeholder"
+                 maxlength="6"
+                 adjust-position='{{true}}' />
+          <view class="unit">
+            KB/s
+          </view>
+        </view>
+        <view class="form-item">
+          <text>限制下载速率</text>
+          <input type="number"
+                 @input="handleDlLimitChange"
+                 value="{{formData.dlLimit}}"
+                 maxlength="6"
+                 placeholder-class="input-placeholder"
+                 adjust-position='{{true}}' />
+          <view class="unit">
+            KB/s
+          </view>
+        </view>
+      </view>
+      <!-- <view class="form-container"
+            wx:if="{{clientType!=='transmission'&&clientType!=='downloadStation'}}">
+        <div wx:if="{{clientType === 'qbitorrent'}}"
+             class="form-item"
+             @tap="handleTagTap">
+          <span>分类</span>
+          <view class="type-content">{{formData.category}}</view>
+        </div>
+        <div wx:else
+             class="form-item"
+             @tap="handleTagTap">
+          <span>标签</span>
+          <view class="type-content">{{formData.label}}</view>
+        </div>
+      </view> -->
+      <view class="btn-area">
+        <button form-type="submit"
+                plain="{{true}}">添加</button>
+      </view>
+    </form>
+    <picker :visible.sync="showPicker"
+            :animationData.sync="animationData"
+            :selectList="tagList"></picker>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import Picker from '../components/picker-view'
+  import {
+    api
+  } from '../utils'
+
+export default class addTorrent extends wepy.page {
+    data = {
+      formData: {
+        type: 'url',
+        savePath: '',
+        paused: false,
+        url: '',
+        dlLimit: '',
+        upLimit: '',
+        fileId: '',
+        skipCheck: false,
+        rootFolder: true,
+        category: '',
+        label: ''
+      },
+      serverId: '',
+      serverIndex: 0,
+      encryptedData: '',
+      clientType: '',
+      fileData: {
+        name: ''
+      },
+      isLocalNetwork: false,
+      showPicker: false,
+      tagList: [],
+      animationData: null,
+      selectIndex: 0
+    }
+    getDefaultPath= async () => {
+      try {
+        const res = await api('get-default-path', {
+          encryptedData: this.encryptedData
+        }, {
+          needAuth: true,
+          hideLoading: true
+        })
+        this.formData.savePath = res.data
+        this.$apply()
+      } catch (error) {
+        console.log(error)
+      }
+    }
+    components ={
+      picker: Picker
+    }
+    computed= {
+      showSpeed() {
+        const clientType = this.clientType
+        return clientType === 'deluge' || clientType === 'qbitorrent'
+      }
+    }
+    methods={
+      handleTagTap(e) {
+        const animation = wx.createAnimation({
+          duration: 400,
+          timingFunction: 'ease-in-out'
+        })
+        this.showPicker = true
+        this.$apply()
+        animation.translateY(-188).step()
+        this.animationData = animation.export()
+      },
+      handleRootFolderTap() {
+        this.formData.rootFolder = !this.formData.rootFolder
+      },
+      handleHashSkip() {
+        this.formData.skipCheck = !this.formData.skipCheck
+      },
+      clearUrl() {
+        this.formData.url = ''
+        this.$apply()
+      },
+      handleUrlChange(e) {
+        this.formData.url = e.detail.value
+      },
+      handleTypeChange(e) {
+        this.formData.type = e.detail.value
+      },
+      handleSavePathChange(e) {
+        this.formData.savePath = e.detail.value
+      },
+      handlePausedTap() {
+        this.formData.paused = !this.formData.paused
+        this.$apply()
+      },
+      handleDlLimitChange(e) {
+        if (e.detail.value < 1 || e.detail.value > 999999) {
+          this.formData.dlLimit = ''
+          return ''
+        }
+        this.formData.dlLimit = e.detail.value
+        this.$apply()
+      },
+      handleUpLimitChange(e) {
+        if (e.detail.value < 1 || e.detail.value > 999999) {
+          this.formData.upLimit = ''
+          return ''
+        }
+        this.formData.upLimit = e.detail.value
+        this.$apply()
+      },
+      async addTorrent() {
+        const {type, url, fileId} = this.formData
+        try {
+          if ((type === 'file' && !fileId) || (type === 'url' && !url)) {
+            throw new Error('请完善种子信息')
+          }
+          await api('add-torrent',
+            {
+              ...this.formData,
+              encryptedData: this.encryptedData
+            },
+          { needAuth: true, serverId: this.serverId })
+          wx.showToast({
+            icon: 'none',
+            title: '添加成功',
+            duration: 1000
+          })
+          setTimeout(() => {
+            if (this.$wxpage.getOpenerEventChannel) {
+              const event = this.$wxpage.getOpenerEventChannel()
+              event.emit('back', {data: this.serverIndex})
+            }
+            wx.navigateBack()
+          }, 1200)
+        } catch (error) {
+          console.log(error)
+          wx.showToast({
+            icon: 'none',
+            title: error.message || '添加失败',
+            duration: 1000
+          })
+        }
+      },
+      chooseFile() {
+        if (!wx.chooseMessageFile) {
+          wx.showModal({
+            title: '提示',
+            content: '当前微信版本过低，无法使用该功能，请升级到最新微信版本后重试。'
+          })
+          return
+        }
+        const that = this
+        wx.chooseMessageFile({
+          count: 1,
+          type: 'file',
+          extension: ['torrent'],
+          success: async(res) => {
+            const {path, name} = res.tempFiles[0]
+            const isTorrent = /.+(\.torrent)$/.test(name)
+  
+            if (!isTorrent) {
+              wx.showToast({
+                icon: 'none',
+                title: '文件格式错误',
+                duration: 1000
+              })
+              return
+            }
+            that.fileData.name = name
+            wx.showLoading({
+              title: '文件加载中...',
+              mask: true
+            })
+            let fileName = name.replace(/(\W|\s)/g, '')
+            fileName = `${new Date().getTime()}`.slice(-5) + fileName.slice(0, 50)
+            if (that.isLocalNetwork) {
+              that.formData.fileId = path
+              that.$apply()
+            } else {
+              const uploadFile = await wx.cloud.uploadFile({
+                cloudPath: fileName,
+                filePath: path
+              })
+              that.formData.fileId = uploadFile.fileID
+              that.$apply()
+            }
+            wx.hideLoading()
+          }
+        })
+      }
+    }
+    config = {
+      navigationBarTitleText: '添加种子'
+    }
+    onLoad(options) {
+      this.serverId = options.id
+      this.encryptedData = options.encryptedData
+      this.serverIndex = options.index
+      this.clientType = options.clientType
+      this.isLocalNetwork = options.isLocalNetwork === 'true'
+      this.getDefaultPath()
+      if (!this.$wxpage.getOpenerEventChannel) {
+        wx.showModal({
+          title: '提示',
+          content: '当前微信版本过低，可能导致部分功能不可用，请升级到最新微信版本后重试。'
+        })
+        return
+      }
+      const event = this.$wxpage.getOpenerEventChannel()
+      event.emit('back')
+    }
+  }
+</script>
+ <style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.add-torrent-page {
+  padding: rpx(10);
+  height: 100%;
+  display: flex;
+  box-sizing: border-box;
+  form {
+    width: 100%;
+  }
+}
+.input-placeholder {
+  font-size: rpx(14);
+  color: #c6c6c6;
+}
+.form-container {
+  background: #ffffff;
+  box-shadow: 0 rpx(1) rpx(6) 0 rgba(0, 0, 0, 0.1);
+  border-radius: rpx(8);
+  margin-bottom: rpx(10);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.form-item {
+  height: rpx(44);
+  border-bottom: rpx(1) solid #f1f1f1;
+  display: flex;
+  align-items: center;
+  padding: 0 rpx(15);
+  justify-content: space-between;
+  font-size: rpx(15);
+  color: #333333;
+  text {
+    margin-right: rpx(16);
+    font-weight: 500;
+  }
+  &.url-textarea {
+    position: relative;
+    .item-label {
+      text.label {
+        width: rpx(75);
+      }
+    }
+    input {
+      padding-right: rpx(15);
+    }
+    .clear-icon {
+      position: absolute;
+      right: rpx(0);
+      top: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: rpx(34);
+      image {
+        height: rpx(14);
+        width: rpx(14);
+      }
+    }
+  }
+  .unit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: rpx(13);
+    margin-left: rpx(5);
+  }
+  .item-label {
+    font-size: rpx(15);
+    color: #333333;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    justify-content: space-between;
+    &.choose-file {
+      .label {
+        flex-shrink: 0;
+      }
+      .desc {
+        font-size: rpx(12);
+        color: #b6b6b6;
+        flex-shrink: 0;
+      }
+    }
+    image {
+      flex-shrink: 0;
+      height: rpx(17);
+      width: rpx(17);
+      margin-right: rpx(8);
+    }
+  }
+  label {
+    &:last-child {
+      text {
+        margin-right: 0;
+      }
+    }
+  }
+  .more {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    .file-name {
+      width: rpx(180);
+      font-size: rpx(13);
+      color: #333;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    image {
+      height: rpx(10);
+      width: rpx(5);
+    }
+  }
+  text {
+    margin-right: rpx(16);
+  }
+  input {
+    flex: 1;
+    font-size: rpx(14);
+    color: #333;
+    height: 100%;
+    text-align: right;
+  }
+  radio {
+    transform: scale(0.7);
+  }
+  .placeholder {
+    font-size: rpx(15);
+    color: #c6c6c6;
+  }
+}
+.btn-area {
+  padding-top: rpx(42);
+  button {
+    background-image: linear-gradient(90deg, #00a9ff 0%, #0280ff 100%);
+    border-radius: rpx(4);
+    box-shadow: 0 rpx(2) rpx(4) 0 rgba(0, 101, 230, 0.43);
+    font-size: rpx(17);
+    color: #0096ff;
+    font-weight: 500;
+    height: rpx(44);
+    border: none;
+    color: #fff;
+  }
+}
+</style>

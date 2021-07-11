@@ -1,0 +1,181 @@
+
+<template>
+  <view class="help-page">
+    <view class="title">
+      服务器地址
+    </view>
+    <view class="content">
+      安装有下载客户端的 NAS 或者购买的盒子会有对应的 IP 或者域名，TransClient 目前同时支持局域网和广域网。在添加局域网服务器时，请确保手机和下载服务器在用一个局域网内。
+    </view>
+    <view class="content">
+      有关公网的设置可以参考：<button plain="{{true}}"
+              @tap="goNetworkSetting">
+        公网设置
+      </button>
+    </view>
+    <view class="second-title">
+      示例
+    </view>
+    <view class="content">
+      假如 NAS 的访问地址是 http://nas.example.com ，NAS 里安装的 QB 的端口号是 1000，则需按如下填写，需要注意的是的如果不支持 HTTPS，则是否为 HTTPS 不要勾选，否则会报错。
+      如果 Transmission 的访问地址为 http://nas.example.com:9091/transmission/web， 服务器地址只需填入 「nas.example.com」即可，/transmission/web 无需填写。
+      <view class="add-view">
+        <ad unit-id="adunit-2d00671371889985"
+            ad-type="video"
+            ad-intervals="{{30}}"
+            ad-theme="white"></ad>
+      </view>
+      <image lazy-load="{{true}}"
+             src="../asset/images/help-1.jpg"
+             mode="widthFix"></image>
+    </view>
+    <view class="content">
+      如果想要添加购买的盒子，则有几种情况需要注意。
+    </view>
+    <view class="content">
+      如果是购买的独立 IP 的盒子，服务器地址一栏填入服务器IP就可以。
+    </view>
+    <view class="content">
+      如果是购买的共享盒子，则 QB 或者 TR 的访问地址会是盒子商提供的域名。
+    </view>
+    <view class="content">
+      以 seedhost 为例，Deluge的地址为 https://cream.seedhost.eu/username/deluge，需按如下填写，由于 HTTPS 没有指定端口号，端口号默认为 443，可以不填。是否为 HTTPS 必须勾选。
+      <image lazy-load="{{true}}"
+             src="../asset/images/help-2.jpg"
+             mode="widthFix"></image>
+    </view>
+    <view class="content">
+      Transmission 的设置比较特殊，seedhost 的 Transmission 地址为 https://cream.seedhost.eu/username/transission/web，在填写服务器地址时只需填入 「cream.seedhost.eu/username」 即可。
+      <image lazy-load="{{true}}"
+             src="../asset/images/help-3.jpg"
+             mode="widthFix"></image>
+    </view>
+    <view class="title">
+      HTTPS
+    </view>
+    <view class="content">
+      首先需要确认添加的服务器地址是否开启 HTTPS 访问，如果没有则不需要勾选，否则会连接失败。
+      如果 HTTPS 服务器地址指定了端口号，则需要填写对应的端口号，如果服务器地址不带端口就可以访问，则不需要填写，HTTPS 默认端口号为 443。
+    </view>
+    <view class="title">
+      端口号
+    </view>
+    <view class="content">
+      这里需要说明的是 Deluge 的端口号不是 Daemon port，而是访问 Deluge 客户端需要在浏览器输入的地址后面的端口号。另外两个客户端也是一样。
+      <image lazy-load="{{true}}"
+             src="../asset/images/help-4.jpg"
+             mode="widthFix"></image>
+    </view>
+    <view class="title">
+      别名
+    </view>
+    <view class="content">
+      别名是在 TransClient 添加服务器后对服务器增加的标识，在小程序中更容易区分各个客户端，可以随意填写。
+    </view>
+    <view class="title">
+      用户名密码
+    </view>
+    <view class="content">
+      这里的用户名密码指的都是访问客户端Web用户界面的用户名和密码。QB 和 UT 的用户名和密码和必填的，否则不会添加成功。TR 如果没有设置过用户名和密码，可以不填。Deluge 只需填入密码即可，Deluge 的密码为访问Web用户界面时需要输入的密码。
+      <image lazy-load="{{true}}"
+             src="../asset/images/help-5.jpg"
+             mode="widthFix"></image>
+    </view>
+    <view class="content">
+      如果 QB 密码和用户名都输入无误，但依旧不能连接成功，需要在选项设置里将以下两项取消勾选。
+      <image lazy-load="{{true}}"
+             src="../asset/images/help-6.png"
+             mode="widthFix"></image>
+    </view>
+    <view class="title">
+      客户端类型
+    </view>
+    <view class="content">
+      在填完以上信息后，客户端类型必须要选择正确，否则也没办法连接成功。如果以上信息都输入无误但依然没办法连接成功，需要检查客户端类型是否选择正确。
+      目前支持 qBittorrent、Transmmison、Deluge、µTorrent、rTorrent、downloadStation 6款下载客户端。
+    </view>
+    <view class="title">
+      是否为默认
+    </view>
+    <view class="content">
+      如果这一项没有勾选，则最新添加的服务器自动设为默认。设为默认后在种子列表页就会展示默认服务器里的种子列表。如果想要修改默认服务器，可以在服务器列表页左滑对应的服务器后点击「设为默认」进行修改。
+    </view>
+    <view class="title">
+      依然无法连接成功
+    </view>
+    <view class="content">
+      点击联系作者按钮跟我反馈问题。
+    </view>
+    <button class="contact"
+            plain="{{true}}"
+            open-type="contact"
+            plain="{{true}}">联系作者</button>
+
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+
+  export default class Help extends wepy.page {
+    config = {
+      navigationBarTitleText: '使用帮助'
+    }
+    methods= {
+      goNetworkSetting() {
+        wx.navigateTo({
+          url: '/pages/networkSetting'
+        })
+      }
+    }
+  }
+
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.help-page {
+  padding: rpx(20);
+  padding-bottom: rpx(40);
+  .title {
+    font-size: rpx(16);
+    font-weight: 500;
+    margin-bottom: rpx(15);
+  }
+  .content {
+    font-size: rpx(14);
+    line-height: rpx(28);
+    margin-bottom: rpx(10);
+    word-break: break-all;
+    button {
+      background: transparent;
+      border: none;
+      color: #0096ff;
+      display: inline;
+      font-size: rpx(14);
+      text-align: left;
+    }
+  }
+  .second-title {
+    font-size: rpx(14);
+    font-weight: 500;
+    margin-bottom: rpx(12);
+  }
+  image {
+    margin: rpx(10) 0;
+    width: 100%;
+  }
+  button.contact {
+    border-radius: rpx(4);
+    font-size: rpx(17);
+    font-weight: 500;
+    height: rpx(44);
+    border: none;
+    background-image: linear-gradient(90deg, #00a9ff 0%, #0280ff 100%);
+    box-shadow: 0 rpx(2) rpx(4) 0 rgba(0, 101, 230, 0.43);
+    color: #fff;
+  }
+  .add-view {
+    padding-top: rpx(40);
+  }
+}
+</style>

@@ -1,0 +1,288 @@
+
+<template>
+  <view class="personal-page">
+    <view class="head-top">
+      <view class="user-info">
+        <open-data type="userAvatarUrl"
+                   class="avatar"></open-data>
+        <view class="user-name">
+          <open-data type="userNickName"
+                     class="nick-name"></open-data>
+        </view>
+
+      </view>
+    </view>
+    <view class="action-list">
+      <view class="list-item"
+            @tap="showGroupImg">
+        <button plain="{{true}}">扫码加入组织🌝</button>
+        <view class="list-item-right">
+          <text class="text">电影｜PT｜NAS交流</text>
+          <image src="../asset/images/arrow-right.png"></image>
+        </view>
+      </view>
+      <view class="list-item"
+            @tap="showCoffeeImg">
+        <button plain="{{true}}">打赏作者☕</button>
+        <view class="list-item-right">
+          <text class="text"></text>
+          <image src="../asset/images/arrow-right.png"></image>
+        </view>
+      </view>
+      <view class="list-item">
+        <button plain="{{true}}"
+                open-type="share">推荐给好友👬</button>
+        <image src="../asset/images/arrow-right.png"></image>
+      </view>
+      <view class="list-item">
+        <button @tap="goSettingPage"
+                plain="{{true}}">系统设置</button>
+        <image src="../asset/images/arrow-right.png"></image>
+      </view>
+      <view class="list-item">
+        <button plain="{{true}}"
+                open-type="contact">客服咨询</button>
+        <image src="../asset/images/arrow-right.png"></image>
+      </view>
+
+    </view>
+  </view>
+  <view class="official-account">
+    <official-account @error="onOfficialAccountError"
+                      @load="onOfficialAccountLoad"></official-account>
+  </view>
+  <modal :visible.sync="modalVisible"
+         @cancel.user="hideModal">
+    <view slot="content"
+          class="modal-desc">
+      <view class="des">在会话窗口发送数字「2」, 关注作者公众号</view>
+    </view>
+    <button slot="confirmBtn"
+            plain="{{true}}"
+            class="confirm-btn"
+            open-type="contact">发送口令</button>
+  </modal>
+  </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import Modal from '../components/modal'
+
+  export default class Me extends wepy.page {
+    config = {
+      navigationBarTitleText: '个人主页',
+      backgroundColor: '#0065e6'
+    }
+    components ={
+      modal: Modal
+    }
+    data={
+      avatar: '',
+      nickname: '',
+      showOfficalAccount: false,
+      modalVisible: false
+    }
+    onShareAppMessage= () => {
+      return {
+        title: 'TR、QB、DE、UT、RT、DS，一手掌控',
+        path: '/pages/index',
+        imageUrl: '../asset/images/share.png'
+      }
+    }
+  
+    onLoad() {
+      wx.showShareMenu()
+    }
+    methods = {
+      showCoffeeImg() {
+        wx.previewImage({
+          urls: ['https://mweb-1258898299.cos.ap-beijing.myqcloud.com/IMG_1016.JPG']
+        })
+      },
+      showGroupImg() {
+        wx.previewImage({
+          urls: ['https://mweb-1258898299.cos.ap-beijing.myqcloud.com/IMG_0080.JPG']
+        })
+      },
+      goSettingPage() {
+        wx.navigateTo({
+          url: '/pages/setting'
+        })
+      },
+      goWechatAccount() {
+        wx.navigateTo({
+          url: '/pages/wechat'
+        })
+      },
+      copyText(text) {
+        wx.setClipboardData({
+          data: text,
+          success (res) {
+            wx.getClipboardData({
+              success (res) {
+                console.log(res.data) // data
+              }
+            })
+          }
+        })
+      },
+      showAccountDialog() {
+        this.modalVisible = true
+      },
+      hideModal() {
+        this.modalVisible = false
+      },
+      onOfficialAccountError(e) {
+        this.showOfficalAccount = true
+        this.$apply()
+      },
+      onOfficialAccountLoad(e) {
+        this.showOfficalAccount = false
+        this.$apply()
+      }
+    }
+  }
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.head-top {
+  height: rpx(202);
+  background: #0065e6;
+  position: relative;
+  overflow: hidden;
+}
+.list-item-right {
+  position: absolute;
+  right: 0;
+  padding-bottom: rpx(7);
+  text {
+    font-size: rpx(13);
+    color: #b9b9b9;
+    margin-right: rpx(5);
+  }
+}
+.user-info {
+  position: absolute;
+  top: rpx(66);
+  width: 100%;
+  height: rpx(138);
+  z-index: 1;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 150%;
+    height: rpx(138);
+    transform: translateX(-50%);
+    background: #fff;
+    border-radius: 50% 50% 0 0/100% 100% 0 0;
+    z-index: 1;
+  }
+  .avatar {
+    position: absolute;
+    top: rpx(-39);
+    background: #d8d8d8;
+    height: rpx(74);
+    width: rpx(74);
+    border-radius: 50%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    border: rpx(4) solid rgba(255, 255, 255, 0.35);
+    background-clip: padding-box;
+    overflow: hidden;
+  }
+  .user-name {
+    position: relative;
+    z-index: 10;
+    padding-top: rpx(41);
+    display: flex;
+    justify-content: center;
+    button {
+      font-size: rpx(22);
+      color: #333333;
+      font-weight: 500;
+      border: none;
+      height: rpx(37);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .nick-name {
+      padding-top: rpx(6);
+      font-size: rpx(22);
+      max-width: rpx(220);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #333333;
+    }
+  }
+}
+.action-list {
+  margin-bottom: rpx(20);
+  display: flex;
+  flex-direction: column;
+  padding: 0 rpx(20);
+  .list-item {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: rpx(40);
+    margin-bottom: rpx(20);
+    .left-wrapper {
+      height: rpx(50);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-left: 14px;
+      .item-name {
+        font-size: rpx(15);
+        color: #333333;
+        border: none;
+      }
+      .des {
+        font-size: rpx(12);
+        height: rpx(20);
+        color: #b9b9b9;
+      }
+    }
+    button {
+      position: relative;
+      z-index: 2;
+      line-height: rpx(40);
+      height: rpx(40);
+      font-size: rpx(15);
+      color: #333333;
+      border: none;
+      flex: 1;
+      text-align: left;
+    }
+    image {
+      height: rpx(10);
+      width: rpx(5);
+    }
+  }
+}
+.modal-desc {
+  padding: rpx(20) 0;
+  .des {
+    font-size: rpx(14);
+    color: #333;
+    line-height: rpx(22);
+  }
+  .btn {
+    font-size: rpx(12);
+    color: #0065e6;
+  }
+}
+.confirm-btn {
+  background: #fff;
+  border: none;
+  height: rpx(44.5);
+}
+</style>

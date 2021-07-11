@@ -1,0 +1,371 @@
+<template>
+  <div class="setting-page">
+    <form bindsubmit="saveSettings">
+      <!-- <div class="form-container">
+        <div class="form-item">
+          <span>开启服务器列表页速度实时刷新</span>
+          <switch checked="{{formData.speedRefresh}}"
+                  @change="handleSwitchChange"
+                  color="#0096ff" />
+
+        </div>
+        <view class="mention"
+              wx:if="{{formData.speedRefresh}}">
+          开启会消耗服务器资源，请点击观看视频按钮后保存。
+        </view>
+      </div> -->
+      <div class="form-container">
+        <div class="form-item">
+          <span>服务器列表展示历史上传总数据</span>
+          <switch checked="{{formData.showTotalData}}"
+                  @change="handleTotalChange"
+                  color="#0096ff" />
+        </div>
+        <view class="mention"
+              wx:if="{{formData.showTotalData}}">
+          目前仅支持Deluge、qBittorrent和transmission
+        </view>
+      </div>
+      <div class="form-container">
+        <div class="form-item"
+             @tap="handleTypeTap">
+          <span>数据换算单位</span>
+          <view class="type-content">{{formData.unit}}</view>
+        </div>
+        <view class="mention">
+          例：1000切换为1024后对应的数据单位由GB切换为GiB
+        </view>
+      </div>
+      <view class="btn-area">
+        <button wx:if="{{formData.speedRefresh}}"
+                @tap="showVideoAd"
+                plain="{{true}}">
+          观看视频
+        </button>
+        <button form-type="submit"
+                class="{{saveDisabled?'submit-disable':''}}"
+                disabled="{{saveDisabled}}"
+                plain="{{true}}">保存</button>
+      </view>
+    </form>
+    <view class="picker-mask"
+          catchtouchmove="handleMaskTouch"
+          wx:if="{{showPicker}}">
+      <div class="picker-view"
+           animation="{{animationData}}">
+        <div class="button-area">
+          <button @tap="hidePicker">取消</button>
+          <button @tap="confirmPickerSelect">确定</button>
+        </div>
+        <picker-view indicator-class="selected-item"
+                     style="height: 290rpx;"
+                     value="{{[selectIndex]}}"
+                     @change="bindPickerChange">
+          <picker-view-column>
+            <view wx:for="{{typeList}}"
+                  wx:key="index"
+                  class="picker-item">
+              {{item}}
+            </view>
+          </picker-view-column>
+        </picker-view>
+      </div>
+    </view>
+  </div>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import {
+    api
+  } from '../utils'
+  export default class Setting extends wepy.page {
+    config = {
+      navigationBarTitleText: '系统设置'
+    }
+    data = {
+      typeList: [1000, 1024],
+      selectIndex: 0,
+      animationData: null,
+      showPicker: false,
+      formData: {
+        unit: 1000,
+        speedRefresh: false,
+        showTotalData: false
+      },
+      speedRefreshInit: false,
+      isEnded: false,
+      videoAd: null
+    }
+    computed = {
+      saveDisabled() {
+        return this.formData.speedRefresh && !this.isEnded && !this.speedRefreshInit
+      }
+    }
+    onLoad() {
+      this.getUserInfo()
+      if (wx.createRewardedVideoAd) {
+        this.videoAd = wx.createRewardedVideoAd({
+          adUnitId: 'adunit-476968d174c98763'
+        })
+        this.videoAd.onError((err) => { console.log(err) })
+        this.videoAd.onClose((res) => {
+          this.isEnded = res.isEnded
+          this.$apply()
+        })
+      }
+    }
+  
+    getUserInfo= async () => {
+      try {
+        const res = await api('get-user-info')
+        if (!res.data) {
+          throw new Error('用户信息获取失败')
+        }
+        this.formData.unit = res.data.unit || 1000
+        this.formData.speedRefresh = res.data.speedRefresh
+        this.formData.showTotalData = res.data.showTotalData
+        this.speedRefreshInit = res.data.speedRefresh
+        this.$apply()
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+  
+    methods = {
+      handleTotalChange(e) {
+        this.formData.showTotalData = e.detail.value
+      },
+      showVideoAd() {
+        if (this.videoAd) {
+          this.videoAd.show().then().catch(() => {
+            this.videoAd.load().then(() => {
+              this.videoAd.show()
+            }).catch((err) => {
+              console.log(err)
+            })
+          })
+        }
+      },
+      handleSwitchChange(e) {
+        this.formData.speedRefresh = e.detail.value
+      },
+      handleTypeTap(e) {
+        if (!this.showPicker) {
+          const animation = wx.createAnimation({
+            duration: 400,
+            timingFunction: 'ease-in-out'
+          })
+          this.showPicker = true
+          this.$apply()
+          animation.translateY(-188).step()
+          this.animationData = animation.export()
+        }
+        this.$apply()
+      },
+  
+      handleMaskTouch() {
+        return false
+      },
+      hidePicker() {
+        this.showPicker = false
+        this.animationData = null
+        this.selectIndex = this.typeList.indexOf(this.formData.unit)
+        this.$apply()
+      },
+      confirmPickerSelect() {
+        this.formData.unit = this.typeList[this.selectIndex]
+        this.showPicker = false
+        this.animationData = null
+        this.$apply()
+      },
+      bindPickerChange(e) {
+        console.log(e)
+        this.selectIndex = e.detail.value[0]
+        this.$apply()
+      },
+      async saveSettings() {
+        try {
+          await api('save-user-info', {
+            userinfo: {
+              ...this.formData
+            }
+          })
+          wx.setStorage({
+            key: 'setting',
+            data: {
+              ...this.formData
+            }
+          })
+          wx.showToast({
+            icon: 'none',
+            title: '修改成功',
+            duration: 1000
+          })
+          wx.navigateBack()
+        } catch (error) {
+          wx.showToast({
+            icon: 'none',
+            title: '保存失败，请重试',
+            duration: 1000
+          })
+        }
+      }
+    }
+  }
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.add-view {
+  padding-top: rpx(15);
+}
+.setting-page {
+  padding: rpx(10);
+  padding-bottom: rpx(30);
+  display: flex;
+  box-sizing: border-box;
+  form {
+    width: 100%;
+  }
+}
+
+.form-container {
+  background: #ffffff;
+  box-shadow: 0 rpx(1) rpx(6) 0 rgba(0, 0, 0, 0.1);
+  border-radius: rpx(8);
+  margin-bottom: rpx(10);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  .mention {
+    font-size: rpx(12);
+    color: #bbb;
+    line-height: rpx(30);
+    padding-left: rpx(15);
+  }
+}
+.form-item {
+  height: rpx(44);
+  border-bottom: rpx(1) solid #f1f1f1;
+  display: flex;
+  align-items: center;
+  padding-left: rpx(15);
+  justify-content: space-between;
+  picker {
+    flex: 1;
+    font-size: rpx(14);
+    color: #333;
+    height: 100%;
+  }
+  picker {
+    display: flex;
+    align-items: center;
+  }
+}
+.picker-mask {
+  background: rgba(0, 0, 0, 0.4);
+  transition: all 0.4s ease-in-out 0;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  opacity: 1;
+  pointer-events: auto;
+}
+.picker-view {
+  position: absolute;
+  bottom: rpx(-188);
+  left: 0;
+  right: 0;
+  height: rpx(188);
+  background: #fff;
+  border-radius: rpx(15) rpx(15) 0 0;
+}
+.button-area {
+  height: rpx(42);
+  padding: 0 rpx(19);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: rpx(1) solid #f1f1f1;
+  button {
+    font-size: rpx(16);
+    color: #999999;
+    background: none;
+    margin: 0;
+    &:last-child {
+      color: #333333;
+    }
+    &:after {
+      border: none;
+    }
+  }
+}
+.picker-item {
+  height: rpx(35);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.selected-item {
+  font-size: rpx(22);
+  line-height: rpx(35);
+  height: rpx(35);
+  color: #333333;
+}
+.type-content {
+  flex: 1;
+  padding-right: rpx(15);
+  text-align: right;
+}
+.btn-area {
+  padding-top: rpx(42);
+  button {
+    background: #fff;
+    border-radius: rpx(4);
+    font-size: rpx(17);
+    color: #0096ff;
+    font-weight: 500;
+    height: rpx(44);
+    border: none;
+    &:first-child {
+      margin-bottom: rpx(15);
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      &:after {
+        border: rpx(1) solid #0096ff;
+      }
+    }
+    &:last-child {
+      background-image: linear-gradient(90deg, #00a9ff 0%, #0280ff 100%);
+      box-shadow: 0 rpx(2) rpx(4) 0 rgba(0, 101, 230, 0.43);
+      color: #fff;
+      &.submit-disable {
+        background: #e0e0e0;
+        border: none;
+        box-shadow: none;
+        color: #808080;
+        background-image: linear-gradient(90deg, #e0e0e0 0%, #e0e0e0 100%);
+      }
+    }
+  }
+  .test-icon {
+    display: flex;
+    align-items: center;
+    margin-right: rpx(11);
+  }
+  .test-image {
+    width: rpx(21);
+    height: rpx(21);
+  }
+}
+</style>

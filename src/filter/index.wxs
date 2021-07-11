@@ -1,0 +1,178 @@
+/* eslint-disable camelcase */
+var getIconType = function (type) {
+  return type !== 'downloadStation' ? type.substring(0, 2).toUpperCase() : 'DS'
+}
+var getIconColor = function (type) {
+  var typeObj = {
+    qbitorrent: '#346EBE',
+    transmission: '#960000',
+    deluge: '#719BC9',
+    utorrent: '#03994B',
+    rutorrent: '#3E3EE6',
+    downloadStation: '#FA8B00'
+  }
+  return typeObj[type]
+}
+var toTruncFixed = function (num, len) {
+  num = num || 0
+  var times = Math.pow(10, len)
+  var result = num * times + 0.5
+  result = parseInt(result, 10) / times
+  return result
+}
+var getSize = function (bytes, unitSetting) {
+  var size_K = unitSetting || 1000
+  var size_K_str = size_K === 1000 ? 'KB' : 'KiB'
+  var size_M_str = size_K === 1000 ? 'MB' : 'MiB'
+  var size_G_str = size_K === 1000 ? 'GB' : 'GiB'
+  var size_T_str = size_K === 1000 ? 'TB' : 'TiB'
+  if (bytes < 0) {
+    return '未知'
+  }
+  if (bytes < size_K || !bytes) {
+    return 0 + size_K_str
+  }
+  var convertedSize
+  var unit
+
+  if (bytes < Math.pow(size_K, 2)) {
+    convertedSize = bytes / size_K
+    unit = size_K_str
+  } else if (bytes < Math.pow(size_K, 3)) {
+    convertedSize = bytes / Math.pow(size_K, 2)
+    unit = size_M_str
+  } else if (bytes < Math.pow(size_K, 4)) {
+    convertedSize = bytes / Math.pow(size_K, 3)
+    unit = size_G_str
+  } else {
+    convertedSize = bytes / Math.pow(size_K, 4)
+    unit = size_T_str
+  }
+  return convertedSize <= 9.995
+    ? [toTruncFixed(convertedSize, 2), unit].join(' ')
+    : [toTruncFixed(convertedSize, 1), unit].join(' ')
+}
+var getSpeed = function (KBps, unitSetting) {
+  var speed_K = unitSetting || 1000
+  var speed_K_str = speed_K === 1000 ? 'KB/s' : 'KiB/s'
+  var speed_M_str = speed_K === 1000 ? 'MB/s' : 'MiB/s'
+  var speed_G_str = speed_K === 1000 ? 'GB/s' : 'GiB/s'
+  var speed = KBps / speed_K
+  if (!KBps) {
+    return 0 + ' ' + speed_K_str
+  }
+  if (KBps < 0) {
+    return '∞'
+  }
+  if (speed <= 999.95) {
+    // 0 KBps to 999 K
+    return [toTruncFixed(speed, 0), speed_K_str].join(' ')
+  }
+  speed /= speed_K
+
+  if (speed <= 99.995) {
+    // 1 M to 99.99 M
+    return [toTruncFixed(speed, 1), speed_M_str].join(' ')
+  }
+  if (speed <= 999.95) {
+    // 100 M to 999.9 M
+    return [toTruncFixed(speed, 0), speed_M_str].join(' ')
+  }
+  speed /= speed_K
+  return [toTruncFixed(speed, 2), speed_G_str].join(' ')
+}
+var getTorrentColor = function (state) {
+  var statusObj = {
+    seeding: '#7ED321',
+    downloading: '#7ED321',
+    paused: '#CDCDCD;',
+    error: '#FF0000',
+    checking: '#7ED321',
+    queued: '#CDCDCD'
+  }
+  return statusObj[state]
+}
+var getRatio = function (ratio) {
+  return ratio < 0 ? 0 : toTruncFixed(ratio, 2)
+}
+var addZero = function (num) {
+  return num >= 10 ? num : '0' + num
+}
+var getEta = function (seconds) {
+  if (seconds >= 8640000 || seconds < 0) {
+    return '∞'
+  }
+  var day = parseInt(seconds / (24 * 3600))
+  var hour = parseInt((seconds / 3600) % 24)
+  var minute = parseInt((seconds / 60) % 60)
+  var second = parseInt(seconds % 60)
+  if (day > 0) {
+    return day + '天' + hour + '小时'
+  } else if (hour > 0) {
+    return hour + '小时' + minute + '分钟'
+  } else if (minute > 0) {
+    return minute + '分钟' + second + '秒'
+  }
+  return second + '秒'
+}
+var formatDate = function (timestring) {
+  if (!timestring) {
+    return ''
+  }
+  // eslint-disable-next-line no-undef
+  var date = getDate(timestring)
+  var Y = date.getFullYear() + '-'
+  var M = addZero(date.getMonth() + 1) + '-'
+  var D = addZero(date.getDate()) + ' '
+  var h = addZero(date.getHours()) + ':'
+  var m = addZero(date.getMinutes()) + ':'
+  var s = addZero(date.getSeconds())
+  return Y + M + D + h + m + s
+}
+var getBtnPermission = function (type, action) {
+  if (!type) {
+    return false
+  }
+  var btnPermission = {
+    qbitorrent: [
+      'setTorrentName',
+      'setLocation',
+      'setDlLimit',
+      'setUpLimit',
+      'setTag',
+      'updateTracker',
+      'recheck'
+    ],
+    transmission: [
+      'setLocation',
+      'setDlLimit',
+      'setUpLimit',
+      'setTag',
+      'updateTracker',
+      'recheck'
+    ],
+    deluge: [
+      'setLocation',
+      'setDlLimit',
+      'setUpLimit',
+      'updateTracker',
+      'recheck'
+    ],
+    rutorrent: ['setLocation', 'updateTracker', 'recheck', 'setTag'],
+    downloadStation: ['setLocation'],
+    utorrent: ['recheck', 'setDlLimit', 'setUpLimit', 'setTag']
+  }
+  return btnPermission[type].indexOf(action) > -1
+}
+module.exports = {
+  getIconType: getIconType,
+  getIconColor: getIconColor,
+  getSize: getSize,
+  getSpeed: getSpeed,
+  toTruncFixed: toTruncFixed,
+  getTorrentColor: getTorrentColor,
+  getRatio: getRatio,
+  getEta: getEta,
+  formatDate: formatDate,
+  getBtnPermission: getBtnPermission
+}

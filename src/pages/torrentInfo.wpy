@@ -1,0 +1,651 @@
+
+<template>
+  <view class="torrent-info">
+    <view class="ad-area">
+      <ad unit-id="adunit-e61b4f85bc1e59d1"></ad>
+    </view>
+    <view class="divide-area">
+      <view class="title-area">
+        <view class="torrent-name">
+          {{torrentInfo.name}}
+        </view>
+        <button plain="{{true}}"
+                wx:if="{{filter.getBtnPermission(serverType,'setTorrentName')}}"
+                @tap="manageTorrent('setTorrentName')">重命名</button>
+      </view>
+      <view class="other-info">
+        <view class="info-item">
+          <view>总大小</view>
+          <view>{{filter.getSize(torrentInfo.size,unit)}}</view>
+        </view>
+        <view class="info-item">
+          <view>添加时间</view>
+          <view>{{filter.formatDate(torrentInfo.addOn)}}</view>
+        </view>
+        <view class="info-item">
+          <view>完成时间</view>
+          <view>{{filter.formatDate(torrentInfo.completeOn)}}</view>
+        </view>
+      </view>
+    </view>
+    <view class="divide-area no-header">
+      <view class="other-info">
+        <view class="info-item">
+          <view>状态</view>
+          <view>{{torrentInfo.stateText}}</view>
+        </view>
+        <view class="info-item">
+          <view>进度</view>
+          <view>{{filter.toTruncFixed(torrentInfo.progress*100,2)}}%</view>
+        </view>
+        <view class="info-item">
+          <view>下载量</view>
+          <view class="font-weight-500">{{filter.getSize(torrentInfo.downloadedData,unit)}} </view>
+        </view>
+        <view class="info-item">
+          <view>上传量</view>
+          <view class="font-weight-500">{{filter.getSize(torrentInfo.uploadedData,unit)}} </view>
+        </view>
+        <view class="info-item">
+          <view>分享率</view>
+          <view>{{filter.getRatio(torrentInfo.ratio)}} </view>
+        </view>
+        <view class="info-item">
+          <view>下载速度</view>
+          <view class="font-weight-500">{{filter.getSpeed(torrentInfo.dlSpeed,unit)}}</view>
+        </view>
+        <view class="info-item">
+          <view>上传速度</view>
+          <view class="font-weight-500">{{filter.getSpeed(torrentInfo.upSpeed,unit)}}</view>
+        </view>
+        <view class="info-item"
+              wx:if="{{torrentInfo.eta>0}}">
+          <view>剩余时间</view>
+          <view>{{filter.getEta(torrentInfo.eta)}}</view>
+        </view>
+      </view>
+    </view>
+    <view class="divide-area btns">
+      <view class="operate-item">
+        <view class="left-area">
+          <view>
+            标签
+          </view>
+          <view>
+            {{torrentInfo.tag||'无'}}
+          </view>
+        </view>
+        <button plain="{{true}}"
+                @tap="manageTorrent('setTag')"
+                wx:if="{{filter.getBtnPermission(serverType,'setTag')}}">修改</button>
+      </view>
+      <view class="operate-item">
+        <view class="left-area">
+          <view>
+            上传限制/下载限制
+          </view>
+          <view>
+            {{filter.getSpeed(torrentInfo.upLimit,unit)}} | {{filter.getSpeed(torrentInfo.dlLimit,unit)}}
+          </view>
+        </view>
+        <view class="speed-limit"
+              wx:if="{{filter.getBtnPermission(serverType,'setUpLimit')}}">
+          <button plain="{{true}}"
+                  @tap="manageTorrent('setUpLimit')">上传限速</button>
+          <button plain="{{true}}"
+                  @tap="manageTorrent('setDlLimit')">下载限速</button>
+        </view>
+
+      </view>
+      <view class="operate-item">
+        <view class="left-area">
+          <view>
+            Tracker
+          </view>
+          <view class="tracker">
+            {{torrentInfo.tracker}}
+          </view>
+        </view>
+        <button plain="{{true}}"
+                wx:if="{{filter.getBtnPermission(serverType,'updateTracker')}}"
+                @tap="updateTracker('updateTracker')">更新</button>
+      </view>
+      <view class="operate-item"
+            wx:if="{{torrentInfo.trackerStatus&&torrentInfo.state==='error'}}">
+        <view class="left-area">
+          <view>
+            错误信息
+          </view>
+          <view>
+            {{torrentInfo.trackerStatus}}
+          </view>
+        </view>
+      </view>
+      <view class="operate-item">
+        <view class="left-area">
+          <view>
+            保存路径
+          </view>
+          <view>
+            {{torrentInfo.savePath}}
+          </view>
+        </view>
+        <button plain="{{true}}"
+                wx:if="{{filter.getBtnPermission(serverType,'setLocation')}}"
+                @tap="manageTorrent('setLocation')">更改</button>
+      </view>
+    </view>
+    <button class="recheck"
+            @tap="recheck"
+            plain="{{true}}">强制校验</button>
+    <view class="modal-container"
+          wx:if="{{modalVisible}}">
+      <view class="modal-mask">
+        <view class="modal-content">
+          <view class="modal-title">{{modalInfo.title}}</view>
+          <view class="form-item"
+                wx:if="{{modalInfo.type==='setLocation'}}">
+            <view class="label">保存路径：</view>
+            <input @input="handleInputChange"
+                   value="{{modalInfo.value}}"
+                   placeholder="输入新路径"
+                   placeholder-class="input-placeholder">
+          </view>
+          <view class="form-item"
+                wx:if="{{modalInfo.type==='setTag'}}">
+            <view class="label">新标签：</view>
+            <input @input="handleInputChange"
+                   value="{{modalInfo.value}}"
+                   placeholder=""
+                   placeholder-class="input-placeholder">
+          </view>
+          <view class="form-item"
+                wx:if="{{modalInfo.type==='setTorrentName'}}">
+            <view class="label">新名称：</view>
+            <input @input="handleInputChange"
+                   value="{{modalInfo.value}}"
+                   placeholder="输入新名称"
+                   placeholder-class="input-placeholder">
+          </view>
+          <view class="form-item speed"
+                wx:if="{{modalInfo.type==='setUpLimit'}}">
+            <view class="label">限制上传速度：</view>
+            <input @input="handleInputChange"
+                   value="{{modalInfo.value}}"
+                   type="number"
+                   placeholder-class="input-placeholder">
+            <view class="unit">KB/s</view>
+          </view>
+          <view class="form-item speed"
+                wx:if="{{modalInfo.type==='setDlLimit'}}">
+            <view class="label">限制下载速度：</view>
+            <input @input="handleInputChange"
+                   value="{{modalInfo.value}}"
+                   type="number"
+                   placeholder-class="input-placeholder">
+            <view class="unit">KB/s</view>
+          </view>
+          <view class="action-btn">
+            <view class="btn-wrapper">
+              <button plain="{{true}}"
+                      @tap="confirmManage">确定</button>
+            </view>
+            <view class="btn-wrapper">
+              <button plain="{{true}}"
+                      @tap="closeModal">取消</button>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import Modal from '../components/modal'
+  import filter from '../filter/index.wxs'
+  import {
+    api
+  } from '../utils'
+
+export default class Me extends wepy.page {
+    config = {
+      navigationBarTitleText: '种子详情',
+      backgroundColor: '#0065e6'
+    }
+    components ={
+      modal: Modal
+    }
+    wxs = {
+      filter: filter
+    }
+    components ={
+      modal: Modal
+    }
+    data={
+      torrentInfo: null,
+      unit: 1000,
+      serverType: 'qbitorrent',
+      modalVisible: false,
+      serverIndex: 0,
+      modalInfo: {
+        title: '限制速度',
+        value: '',
+        type: 'limitSpeed'// savePath、rename、limitSpeed
+      }
+    }
+    onShareAppMessage= () => {
+      return {
+        title: 'TR、QB、DE、UT、RT、DS，一手掌控',
+        path: '/pages/index',
+        imageUrl: '../asset/images/share.png'
+      }
+    }
+    submitTorrentEdit = async (action, params = {}) => {
+      try {
+        await api('torrent-manage', {
+          action,
+          encryptedData: this.optionData.encryptedData,
+          params: {
+            id: this.optionData.id,
+            ...params
+          }
+        })
+  
+        if (this.modalVisible) {
+          this.modalVisible = false
+          this.$apply()
+        }
+  
+        wx.showToast({
+          icon: 'none',
+          title: '操作成功',
+          duration: 1000
+        })
+        this.delayTimeout = setTimeout(() => {
+          clearTimeout(this.delayTimeout)
+          this.getTorrentInfo(true)
+        }, 500)
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+    async getTorrentInfo(hideLoading) {
+      try {
+        const res = await api('get-torrent-info', {
+          encryptedData: this.optionData.encryptedData,
+          id: this.optionData.id
+        }, {
+          hideLoading
+        })
+        this.torrentInfo = res.data
+        this.$apply()
+        const {upSpeed, dlSpeed} = this.torrentInfo
+        if (upSpeed > 0 || dlSpeed > 0) {
+          this.infoTimeout = setTimeout(() => {
+            this.getTorrentInfo(true)
+          }, 3000)
+        }
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+    onHide() {
+      clearTimeout(this.infoTimeout)
+    }
+    onLoad(options) {
+      const {unit} = wx.getStorageSync('setting')
+      this.unit = unit || 1000
+      let {id, encryptedData, type} = options
+      if (type === 'transmission') {
+        id = parseInt(id)
+      }
+      this.optionData = {
+        id,
+        encryptedData
+      }
+      this.serverType = type
+      const event = this.$wxpage.getOpenerEventChannel()
+      this.serverIndex = options.index
+      event.emit('back', {data: this.serverIndex})
+      this.getTorrentInfo()
+    }
+    methods = {
+      handleInputChange(e) {
+        this.modalInfo.value = e.detail.value
+        this.$apply()
+      },
+      updateTracker(action) {
+        this.submitTorrentEdit(action)
+      },
+      manageTorrent(modalType) {
+        const modalData = {
+          setTag: {
+            title: '修改标签',
+            value: this.torrentInfo.tag,
+            key: 'tags',
+            action: 'setTag'
+          },
+          setUpLimit: {
+            title: '限制上传速度',
+            value: this.torrentInfo.upLimit > 0 ? this.torrentInfo.upLimit / 1000 : '',
+            key: 'limit',
+            action: 'setUpLimit'
+          },
+          setDlLimit: {
+            title: '限制下载速度',
+            value: this.torrentInfo.dlLimit > 0 ? this.torrentInfo.dlLimit / 1000 : '',
+            key: 'limit',
+            action: 'setDlLimit'
+          },
+          setTorrentName: {
+            title: '重命名种子',
+            value: this.torrentInfo.name,
+            key: 'name',
+            action: 'setTorrentName'
+          },
+          setLocation: {
+            title: '更改保存位置',
+            value: this.torrentInfo.savePath,
+            key: 'path',
+            action: 'setLocation'
+          }
+        }
+        this.modalType = modalType
+        this.modalInfo = {
+          type: modalType,
+          ...modalData[modalType]
+        }
+        this.modalVisible = true
+      },
+      closeModal() {
+        this.modalVisible = false
+        this.modalType = ''
+      },
+      recheck() {
+        this.submitTorrentEdit('recheck')
+      },
+      confirmManage() {
+        let {action, value, key} = this.modalInfo
+        console.log(key)
+        if (key === 'limit') {
+          if (!value || parseInt(value) <= 0) {
+            value = 0
+          }
+        }
+        if (key === 'tags' && value !== this.torrentInfo.tag && this.serverType === 'qbitorrent') {
+          this.submitTorrentEdit('removeTag', {
+            tags: this.torrentInfo.tag
+          })
+        }
+        this.submitTorrentEdit(action, {
+          [key]: value
+        })
+      }
+  
+    }
+  }
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.ad-area {
+  margin-bottom: rpx(10);
+}
+.torrent-info {
+  padding: rpx(10) rpx(10) rpx(50);
+}
+.divide-area {
+  background: #ffffff;
+  box-shadow: 0 1px rpx(6) rgba(0, 0, 0, 0.1);
+  border-radius: rpx(8);
+  border-radius: rpx(8);
+  padding: rpx(12) 0;
+  margin-bottom: rpx(10);
+  &.no-header {
+    .other-info {
+      border-top: none;
+      padding-top: 0;
+    }
+  }
+  .other-info {
+    border-top: 1px solid #e9e9e9;
+    padding: rpx(11) rpx(15) 0;
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: rpx(8);
+      view {
+        &:first-child {
+          font-size: rpx(13);
+          color: #818181;
+        }
+        &:last-child {
+          font-size: 13px;
+          color: #333333;
+          text-align: right;
+        }
+      }
+    }
+  }
+}
+.font-weight-500 {
+  font-weight: 500;
+}
+.title-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 rpx(15);
+  .torrent-name {
+    font-size: rpx(15);
+    color: #333333;
+    letter-spacing: 0;
+    font-weight: 500;
+    flex: 1;
+    margin-right: rpx(8);
+    margin-bottom: rpx(12);
+    word-break: break-all;
+  }
+  button {
+    border: none;
+    background-image: linear-gradient(90deg, #00a9ff 0%, #0280ff 100%);
+    box-shadow: 0 rpx(2) rpx(4) 0 rgba(0, 101, 230, 0.43);
+    border-radius: rpx(12);
+    font-size: rpx(12);
+    color: #ffffff;
+    width: rpx(70);
+    height: rpx(24);
+    line-height: rpx(24);
+  }
+}
+.divide-area.btns {
+  padding: 0;
+  .speed-limit {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    button {
+      width: rpx(80);
+    }
+    button:first-child {
+      margin-bottom: rpx(5);
+    }
+  }
+  button {
+    border: none;
+    background-image: linear-gradient(90deg, #00a9ff 0%, #0280ff 100%);
+    box-shadow: 0 rpx(2) rpx(4) 0 rgba(0, 101, 230, 0.43);
+    border-radius: rpx(12);
+    font-size: rpx(12);
+    color: #ffffff;
+    width: rpx(60);
+    height: rpx(24);
+    line-height: rpx(24);
+  }
+  .operate-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: rpx(12) rpx(15);
+    border-bottom: 1px solid #e9e9e9;
+    width: 100%;
+    box-sizing: border-box;
+    &:last-child {
+      border-bottom: none;
+    }
+    .left-area {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: wrap;
+      flex: 1;
+      overflow: hidden;
+      margin-right: rpx(8);
+      view {
+        &:first-child {
+          font-size: rpx(15);
+          color: #333333;
+          font-weight: 500;
+          margin-bottom: rpx(5);
+        }
+        &:last-child {
+          width: 100%;
+          white-space: normal;
+          font-size: rpx(13);
+          word-break: break-all;
+          color: #818181;
+          font-weight: 500;
+        }
+      }
+    }
+  }
+}
+.recheck {
+  background-image: linear-gradient(90deg, #00a9ff 0%, #0280ff 100%);
+  border-radius: rpx(4);
+  box-shadow: 0 rpx(2) rpx(4) 0 rgba(0, 101, 230, 0.43);
+  font-size: rpx(14);
+  color: #0096ff;
+  font-weight: 500;
+  width: rpx(100);
+  height: rpx(36);
+  line-height: rpx(36);
+  border: none;
+  color: #fff;
+}
+.tracker {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+.form-item {
+  background: #f0f0f0;
+  border-radius: rpx(6);
+  height: rpx(44);
+  border-bottom: rpx(1) solid #f1f1f1;
+  display: flex;
+  align-items: center;
+  padding: 0 rpx(15);
+  justify-content: space-between;
+  margin: 0 rpx(19) rpx(30);
+  position: relative;
+  &.speed {
+    input {
+      padding-right: rpx(40);
+    }
+  }
+  .unit {
+    position: absolute;
+    right: rpx(15);
+    font-size: rpx(15);
+    color: #333333;
+  }
+  .label {
+    margin-right: rpx(16);
+    font-size: rpx(15);
+    color: #333333;
+  }
+  input {
+    flex: 1;
+    font-size: rpx(14);
+    color: #333;
+    text-align: right;
+    height: 100%;
+  }
+}
+.modal-title {
+  font-size: rpx(17);
+  color: #333333;
+  font-weight: 500;
+  text-align: center;
+  padding-top: rpx(19);
+  margin-bottom: rpx(23);
+}
+.modal-mask {
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  transition: all 0.4s ease-in-out 0;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  pointer-events: auto;
+}
+.modal-content {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: #fff;
+  font-size: rpx(17);
+  border-radius: rpx(12);
+}
+.action-btn {
+  border-top: 1px solid #f1f1f1;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+  .btn-wrapper {
+    width: 100%;
+    height: rpx(44.5);
+    background: #fff;
+    button {
+      font-size: rpx(17);
+    }
+    &:last-child {
+      border-top: 1px solid #eaeaea;
+      button {
+        font-size: rpx(17);
+        color: #999999;
+      }
+    }
+  }
+
+  button {
+    background: #fff;
+    border: none;
+    width: 50%;
+    height: rpx(44.5);
+    line-height: rpx(44.5);
+    color: #0096ff;
+    &::after {
+      border: none;
+    }
+  }
+}
+.input-placeholder {
+  font-size: rpx(14);
+  color: #c6c6c6;
+}
+</style>

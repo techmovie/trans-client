@@ -1,0 +1,123 @@
+<template>
+  <view class="picker-mask"
+        catchtouchmove="handleMaskTouch"
+        wx:if="{{visible}}">
+    <div class="picker-view"
+         animation="{{animationData}}">
+      <div class="button-area">
+        <button @tap="hidePicker">取消</button>
+        <button @tap="confirmPickerSelect">确定</button>
+      </div>
+      <picker-view indicator-class="selected-item"
+                   style="height: 290rpx;"
+                   value="{{[selectIndex]}}"
+                   @change="bindPickerChange">
+        <picker-view-column>
+          <view wx:for="{{typeList}}"
+                wx:key="index"
+                class="picker-item">
+            {{item}}
+          </view>
+        </picker-view-column>
+      </picker-view>
+    </div>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy'
+  export default class PickerView extends wepy.component {
+    props= {
+      visible: {
+        type: Boolean,
+        default: false,
+        twoWay: true
+      },
+      selectIndex: {
+        type: Number,
+        default: 0,
+        twoWay: true
+      },
+      selectLit: {
+        type: Array,
+        default: []
+      },
+      animationData: {
+        type: Object,
+        default: null,
+        twoWay: true
+      }
+    }
+    data = {
+  
+      selectIndex: 0,
+      initValue: null
+    }
+    onLoad() {
+      this.initValue = this.selectLit[this.selectIndex]
+    }
+    methods={
+      handleMaskTouch() {
+        return false
+      },
+      hidePicker() {
+        this.visible = false
+        this.animationData = null
+        this.selectIndex = this.selectLit.indexOf(this.initValue)
+      },
+      bindPickerChange(e) {
+        this.selectIndex = e.detail.value[0]
+        this.$apply()
+      },
+      confirmPickerSelect() {
+        this.$emit('confirm', this.selectLit[this.selectIndex])
+        this.visible = false
+        this.animationData = null
+      }
+    }
+  }
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.picker-mask {
+  background: rgba(0, 0, 0, 0.4);
+  transition: all 0.4s ease-in-out 0;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  opacity: 1;
+  pointer-events: auto;
+  .button-area {
+    height: rpx(42);
+    padding: 0 rpx(19);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: rpx(1) solid #f1f1f1;
+    button {
+      font-size: rpx(16);
+      color: #999999;
+      background: none;
+      margin: 0;
+      &:last-child {
+        color: #333333;
+      }
+      &:after {
+        border: none;
+      }
+    }
+  }
+}
+.picker-view {
+  position: absolute;
+  bottom: rpx(-188);
+  left: 0;
+  right: 0;
+  height: rpx(188);
+  background: #fff;
+  border-radius: rpx(15) rpx(15) 0 0;
+}
+</style>

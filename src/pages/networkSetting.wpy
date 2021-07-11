@@ -1,0 +1,15 @@
+
+<template>
+  <web-view src="https://mp.weixin.qq.com/s/hle1j6Z_bGkN_ND-SI9sTg"></web-view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+
+  export default class NetworkSetting extends wepy.page {
+    config = {
+      navigationBarTitleText: '家里搭建了 NAS 需要远程访问？这几个步骤很重要'
+    }
+  }
+
+</script>

@@ -1,0 +1,142 @@
+<template>
+  <view class="sheet-container"
+        wx:if="{{visible}}">
+    <view class="sheet-mask">
+      <view class="sheet-content">
+        <view class="sheet-title">
+          <view class="title">{{title}}</view>
+          <view class="close"
+                @tap="closeSheet">
+            <image src="../asset/images/close.png"></image>
+          </view>
+        </view>
+        <view class="action-btn">
+          <button wx:for="{{btns}}"
+                  wx:key="index"
+                  class="{{index===selectIndex?'selected': ''}}"
+                  @tap="handleBtnClick({{item}},{{index}})">{{item.label}}</button>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  export default class Sheet extends wepy.component {
+    props= {
+      title: {
+        type: String,
+        default: ''
+      },
+      visible: {
+        type: Boolean,
+        default: false,
+        twoWay: true
+      },
+      btns: {
+        type: Array,
+        default: []
+      },
+      selectIndex: {
+        type: Number,
+        default: 0
+      }
+    }
+    data = {
+      selectedData: null
+    }
+    onLoad() {
+    }
+    methods={
+      closeSheet() {
+        this.visible = false
+        this.$emit('close')
+      },
+      handleBtnClick(data, index) {
+        this.selectIndex = index
+        this.visible = false
+        this.$emit('select', {data, index})
+      }
+    }
+  }
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.sheet-mask {
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  transition: all 0.4s ease-in-out 0;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  pointer-events: auto;
+}
+.sheet-content {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: #fff;
+}
+.sheet-title {
+  height: rpx(42);
+  padding: 0 rpx(16.4);
+  box-sizing: border-box;
+  border: rpx(1) solid #f1f1f1;
+  position: relative;
+  font-size: rpx(16);
+  font-weight: 500;
+  color: #333333;
+  .title {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .close {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: rpx(49);
+    padding-left: rpx(20);
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    image {
+      height: rpx(13);
+      width: rpx(13);
+    }
+  }
+}
+.action-btn {
+  display: flex;
+  justify-content: space-between;
+  padding: rpx(22) rpx(19) rpx(24);
+  flex-wrap: wrap;
+  height: auto;
+  button {
+    background: #fff;
+    border: none;
+    width: rpx(96);
+    height: rpx(30);
+    border-radius: rpx(17.5);
+    border: rpx(1) solid #c6c6c6;
+    font-size: rpx(14);
+    line-height: rpx(30);
+    color: #c6c6c6;
+    &:nth-child(-n + 3) {
+      margin-bottom: rpx(23);
+    }
+    &.selected {
+      color: #0096ff;
+      border: rpx(1) solid #0096ff;
+    }
+  }
+}
+</style>

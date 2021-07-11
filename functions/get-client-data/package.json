@@ -1,0 +1,15 @@
+{
+  "name": "get-client-data",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@techmovie/trans-client-server": "^1.4.0-2",
+    "wx-server-sdk": "~2.1.2"
+  }
+}

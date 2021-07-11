@@ -1,0 +1,745 @@
+<template>
+  <view class="page-server">
+    <!-- 暂无服务器 -->
+    <view class="add-server"
+          wx:if="{{serverList.length===0}}">
+      <view class="server-text">
+        <image class="server-logo"
+               lazy-load="{{true}}"
+               src="../asset/images/no-server.png" />
+        <p>暂无服务器</p>
+      </view>
+      <button @tap="goAddPage"
+              class="server-btn">添加服务器</button>
+      <view class="server-btn-mention">支持qBittorrent、Deluge、Transmission、µTorrent、rTorrent(Rutorrent)、DownloadStation</view>
+      <view @tap="goAria"
+            class="aria-btn">
+        <image class="logo"
+               lazy-load="{{true}}"
+               src="../asset/images/aria2.png" />
+
+        <view>
+          <view class="title">添加Aria2服务器</view>
+          <view class="des">Aria2管理工具小程序</view>
+        </view>
+      </view>
+    </view>
+    <scroll-view @refresherrefresh="handlePullDown"
+                 refresher-default-style="black"
+                 refresher-enabled="{{true}}"
+                 refresher-threshold="{{80}}"
+                 refresher-triggered="{{isRefreshing}}"
+                 scroll-y="{{true}}"
+                 style="height: 100%;-webkit-overflow-scrolling: touch;"
+                 wx:else>
+      <!-- 服务器列表 -->
+      <view class="server-list">
+        <repeat for="{{serverList}}"
+                index="index"
+                item="item"
+                key="index">
+          <view @tap="goEditPage({{item}})"
+                class="slide-item">
+            <mp-slideview bindbuttontap="slideButtonTap"
+                          buttons="{{[{text: '删除',extClass: 'delete-button', data:item }]}}"
+                          wx:if="{{item.isDefault}}">
+              <view class="list-item">
+                <view class="list-top">
+                  <view class="icon-type"
+                        style="color: {{filter.getIconColor(item.type)}};'border-color':{{filter.getIconColor(item.type)}}">{{filter.getIconType(item.type)}}</view>
+                  <view class="title">{{ item.alias }}</view>
+                </view>
+                <view class="list-bottom"
+                      wx:if="{{(item.type==='deluge'||item.type==='qbitorrent' || item.type==='transmission')&&setting.showTotalData}}">
+                  <view class="upload-amount">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/uploaded.png" />
+                    <text>{{filter.getSize(item.totalUploaded,setting.unit)}}</text>
+                  </view>
+                  <view class="download-amount">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/downloaded.png" />
+                    <text>{{filter.getSize(item.totalDownloaded,setting.unit)}}</text>
+                  </view>
+                  <view class="free-space">
+                    <text style="color: #5A5A68;">分享率</text>
+                    <text>{{filter.toTruncFixed(item.globalRatio,2)}}</text>
+                  </view>
+                </view>
+                <view class="list-bottom"
+                      wx:else>
+                  <view class="upload-amount">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/uploaded.png" />
+                    <text>{{filter.getSize(item.uploaded,setting.unit)}}</text>
+                  </view>
+                  <view class="download-amount">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/downloaded.png" />
+                    <text>{{filter.getSize(item.downloaded,setting.unit)}}</text>
+                  </view>
+                  <view class="free-space">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/free-space.png" />
+                    <text>{{filter.getSize(item.freeSpace,setting.unit)}}</text>
+                  </view>
+                </view>
+                <view class="list-speed"
+                      wx:if="{{setting.speedRefresh}}">
+                  <view class="speed-item">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/upload-speed.png" />
+                    <view>{{filter.getSpeed(item.upSpeed,setting.unit)}}</view>
+                  </view>
+                  <view class="speed-item">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/download-speed.png" />
+                    <view>{{filter.getSpeed(item.dlSpeed,setting.unit)}}</view>
+                  </view>
+                </view>
+                <view class="default-sign"
+                      wx:if="{{item.isDefault}}">默认</view>
+              </view>
+            </mp-slideview>
+            <mp-slideview bindbuttontap="slideButtonTap"
+                          buttons="{{item.isDefault?[{text: '删除',extClass: 'delete-button', data:item }]:[{text: '设为默认',extClass: 'edit-button', data:item}, {text: '删除',extClass: 'delete-button', data:item }]}}"
+                          wx:else>
+              <view class="list-item">
+                <view class="list-top">
+                  <view class="icon-type"
+                        style="color: {{filter.getIconColor(item.type)}};'border-color':{{filter.getIconColor(item.type)}}">{{filter.getIconType(item.type)}}</view>
+                  <view class="title">{{ item.alias }}</view>
+                </view>
+                <view class="list-bottom"
+                      wx:if="{{(item.type==='deluge'||item.type==='qbitorrent' || item.type==='transmission')&&setting.showTotalData}}">
+                  <view class="upload-amount">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/uploaded.png" />
+                    <text>{{filter.getSize(item.totalUploaded,setting.unit)}}</text>
+                  </view>
+                  <view class="download-amount">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/downloaded.png" />
+                    <text>{{filter.getSize(item.totalDownloaded,setting.unit)}}</text>
+                  </view>
+                  <view class="free-space">
+                    <text style="color: #5A5A68;">分享率</text>
+                    <text>{{filter.toTruncFixed(item.globalRatio,2)}}</text>
+                  </view>
+                </view>
+                <view class="list-bottom"
+                      wx:else>
+                  <view class="upload-amount">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/uploaded.png" />
+                    <text>{{filter.getSize(item.uploaded,setting.unit)}}</text>
+                  </view>
+                  <view class="download-amount">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/downloaded.png" />
+                    <text>{{filter.getSize(item.downloaded,setting.unit)}}</text>
+                  </view>
+                  <view class="free-space">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/free-space.png" />
+                    <text>{{filter.getSize(item.freeSpace,setting.unit)}}</text>
+                  </view>
+                </view>
+                <view class="list-speed"
+                      wx:if="{{setting.speedRefresh}}">
+                  <view class="speed-item">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/upload-speed.png" />
+                    <view>{{filter.getSpeed(item.upSpeed,setting.unit)}}</view>
+                  </view>
+                  <view class="speed-item">
+                    <image lazy-load="{{true}}"
+                           src="../asset/images/download-speed.png" />
+                    <view>{{filter.getSpeed(item.dlSpeed,setting.unit)}}</view>
+                  </view>
+                </view>
+                <view class="default-sign"
+                      wx:if="{{item.isDefault}}">默认</view>
+              </view>
+            </mp-slideview>
+          </view>
+        </repeat>
+      </view>
+      <view class="add-server-btn"
+            wx:if="{{serverList.length>0}}">
+        <button @tap="goAddPage"
+                plain="{{true}}">
+          <view class="left-content">
+            <image class="test-image"
+                   src="../asset/images/add-server.png" />
+            <span>添加服务器</span>
+          </view>
+          <image class="right-image"
+                 src="../asset/images/arrow-right.png" />
+        </button>
+        <view @tap="goAria"
+              class="aria-btn">
+          <image class="logo"
+                 src="../asset/images/aria2.png" />
+          <view>
+            <view class="title">添加Aria2服务器</view>
+            <view class="des">Aria2管理工具小程序</view>
+          </view>
+        </view>
+      </view>
+      <view class="ad-view">
+        <ad unit-id="adunit-5b3147a7aa48392f"></ad>
+      </view>
+    </scroll-view>
+    <modal :visible.sync="modalVisible"
+           @cancel.user="hideModal"
+           @confirm.user="deleteServer">
+      <view class="modal-desc"
+            slot="content">是否确认删除？</view>
+    </modal>
+  </view>
+</template>
+
+<script>
+  import filter from '../filter/index.wxs'
+  import wepy from 'wepy'
+
+  import Modal from '../components/modal'
+  import {
+    api
+  } from '../utils'
+export default class serverList extends wepy.page {
+    config = {
+      navigationBarTitleText: '下载服务器',
+      'usingComponents': {
+        'mp-slideview': '../components/slideview/slideview'
+      }
+    }
+    components ={
+      modal: Modal
+    }
+    wxs = {
+      filter: filter
+    }
+    computed = {
+      refreshGap() {
+        return this.serverList.length * 2000
+      }
+    }
+    hooks = {}
+    data = {
+      setting: {
+        unit: 1000,
+        speedRefresh: false,
+        showTotalData: false
+      },
+      serverList: [],
+      errorIdArray: [],
+      isActionBtnShow: false,
+      deleteData: null,
+      modalVisible: false,
+      isRefreshing: false,
+      slideIndex: -1,
+      slideButtons: [ {
+        text: '编辑',
+        extClass: 'edit-button'
+      }, {
+        text: '删除',
+        extClass: 'delete-button'
+      }]
+    }
+    refreshServerList= async() => {
+      try {
+        const res = await api('get-server-list', {}, {hideLoading: true})
+        if (res.data.length > 0) {
+          res.data.forEach((server, index) => {
+            const {alias = '', type, isDefault, encryptedData, _id, isLocalNetwork} = server
+            this.serverList[index].alias = alias
+            this.serverList[index].type = type
+            this.serverList[index]._id = _id
+            this.serverList[index].isDefault = isDefault
+            this.serverList[index].encryptedData = encryptedData
+            this.serverList[index].isLocalNetwork = isLocalNetwork
+            if (!this.errorIdArray.includes(_id)) {
+              this.getClientInfo(server, index)
+            }
+          })
+        }
+      } catch (error) {
+        console.log(error)
+      } finally {
+        if (!this.pageHide && this.serverList.length > this.errorIdArray.length) {
+          this.serverTimeout = setTimeout(() => {
+            this.refreshServerList(true)
+          }, this.refreshGap)
+        }
+      }
+    }
+    getServerList=async (hideLoading = false) => {
+      try {
+        const res = await api('get-server-list', {}, {hideLoading})
+        this.serverList = res.data
+        this.$apply()
+        wx.setStorage({
+          key: 'servers',
+          data: res.data
+        })
+        if (res.data.length === 0) {
+          wx.removeStorage({
+            key: 'defaultServer'
+          })
+        } else {
+          res.data.forEach((server, index) => {
+            if (this.errorIdArray.includes(server._id)) {
+              if (this.isRefreshing) {
+                this.isRefreshing = false
+                this.$apply()
+                throw new Error('请检查失效下载服务器')
+              }
+            } else {
+              this.getClientInfo(server, index)
+            }
+            if (server.isDefault || index === 0) {
+              wx.setStorage({
+                key: 'defaultServer',
+                data: {
+                  alias: server.alias,
+                  type: server.type,
+                  encryptedData: server.encryptedData,
+                  _id: server._id,
+                  isLocalNetwork: server.isLocalNetwork
+                }
+              })
+            }
+          })
+          if (this.setting.speedRefresh && !this.pageHide) {
+            this.refreshServerList()
+          }
+        }
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message || '服务器列表获取失败',
+          duration: 1000
+        })
+      } finally {
+        this.isRefreshing = false
+      }
+    }
+    editServer=(item) => {
+      const that = this
+      wx.navigateTo({
+        url: `/pages/addServer?id=${item._id}&isDefault=${item.isDefault}&alias=${item.alias}&encryptedData=${item.encryptedData}`,
+        events: {
+          back: function(data) {
+            that.isBack = true // 无操作返回
+          }
+        }
+      })
+    }
+    showDeleteModal=(data) => {
+      this.deleteData = data
+      this.modalVisible = true
+      this.$apply()
+    }
+    getClientInfo=(data, index) => {
+      const {encryptedData, _id} = data
+      api('get-client-info', {encryptedData}, {
+        needAuth: true,
+        hideLoading: true,
+        serverId: _id
+      }).then(res => {
+        const server = this.serverList[index]
+        const serverData = {
+          ...server,
+          ...res.data
+        }
+        this.serverList[index] = serverData
+        this.$apply()
+      }).catch(error => {
+        let message = error.message
+        if (message && message.match(/超时|fail|失败/)) {
+          if (!this.errorIdArray.includes(_id)) {
+            this.errorIdArray.push(_id)
+            this.$apply()
+            message = `「${data.alias}」请求失败，请及时修改`
+          } else {
+            return
+          }
+        }
+        if (!this.setting.speedRefresh || this.errorIdArray.includes(_id)) {
+          console.log(message)
+          wx.showToast({
+            icon: 'none',
+            title: message,
+            duration: 1000
+          })
+        }
+      })
+    }
+    setDefault=async (data) => {
+      try {
+        await api('set-default', {
+          id: data._id,
+          isDefault: true
+        })
+        this.getServerList()
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+    deleteErrorId =(id) => {
+      const index = this.errorIdArray.findIndex(item => item === id)
+      if (index >= 0) {
+        this.errorIdArray.splice(index, 1)
+        this.$apply()
+      }
+    }
+    methods = {
+      goAria() {
+        wx.navigateToMiniProgram({
+          appId: 'wx907f96798df2537f',
+          path: 'pages/index/index'
+        })
+      },
+      goEditPage(data) {
+        this.editServer(data)
+      },
+      handlePullDown() {
+        if (this.isRefreshing) return
+        this.isRefreshing = true
+        clearTimeout(this.serverTimeout)
+        this.getServerList()
+      },
+      slideButtonTap(e) {
+        const detail = e.detail
+        if (detail.index === 0 && !detail.data.isDefault) {
+          this.setDefault(detail.data)
+        } else {
+          this.showDeleteModal(detail.data)
+        }
+      },
+  
+      goAddPage() {
+        clearTimeout(this.serverTimeout)
+        wx.navigateTo({
+          url: '/pages/addServer',
+          events: {
+            back: function(data) {
+              this.isBack = true
+            }
+          }
+        })
+      },
+      async deleteServer () {
+        const {_id, isDefault} = this.deleteData
+        try {
+          await api('delete-server',
+            {
+              id: _id, isDefault
+            })
+          this.deleteErrorId(_id)
+          wx.showToast({
+            icon: 'none',
+            title: '删除成功',
+            duration: 1000
+          })
+          clearTimeout(this.serverTimeout)
+          this.getServerList()
+        } catch (e) {
+          wx.showToast({
+            icon: 'none',
+            title: '删除失败，请重试',
+            duration: 1000
+          })
+        } finally {
+          this.modalVisible = false
+          this.deleteData = null
+          this.$apply()
+        }
+      },
+      hideModal() {
+        this.modalVisible = false
+        this.deleteData = null
+      },
+      addServer() {
+        wepy.navigateTo({
+          url: '/pages/addServer'
+        })
+      }
+    }
+    onShareAppMessage= () => {
+      return {
+        title: 'TR、QB、DE、UT、RT、DS，一手掌控',
+        path: '/pages/index',
+        imageUrl: '../asset/images/share.png'
+      }
+    }
+    onHide() {
+      this.pageHide = true
+      this.errorIdArray = []
+      clearTimeout(this.serverTimeout)
+    }
+    onShow() {
+      this.pageHide = false
+      if (this.isLoaded && !this.isBack && this.setting.speedRefresh) {
+        this.onLoad()
+      }
+      if (this.isBack) {
+        this.getServerList()
+      }
+      const setting = wx.getStorageSync('setting')
+      if (setting) {
+        this.setting = setting
+        this.$apply()
+      }
+      this.isBack = false
+    }
+    onLoad() {
+      this.getServerList()
+      if (!this.isLoaded) {
+        this.loadTimeout = setTimeout(() => {
+          this.isLoaded = true
+          clearTimeout(this.loadTimeout)
+        }, 1000)
+      }
+      wx.showShareMenu()
+    }
+  }
+</script>
+<style lang="scss">
+@import '../asset/sass/index.scss';
+.ad-view {
+  margin: 0 rpx(10) rpx(50);
+}
+.page-server {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+.add-server {
+  height: 100%;
+  padding: rpx(130) rpx(10) 0;
+}
+.server-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  image {
+    width: rpx(95);
+    height: rpx(73);
+  }
+  p {
+    padding-top: rpx(10);
+    margin-bottom: rpx(52);
+    font-size: rpx(15);
+    color: #333333;
+  }
+}
+.server-btn {
+  background-image: linear-gradient(90deg, #00a9ff 0%, #0280ff 100%);
+  box-shadow: 0 rpx(2) rpx(4) 0 rgba(0, 101, 230, 0.43);
+  border-radius: rpx(23.5);
+  font-size: rpx(17);
+  color: #ffffff;
+  width: rpx(160);
+  margin-bottom: rpx(15);
+}
+.server-btn-mention {
+  margin-bottom: rpx(50);
+  color: #cccccc;
+  font-size: rpx(14);
+  text-align: center;
+}
+.server-list {
+  padding-top: rpx(10);
+
+  .slide-item {
+    margin-bottom: rpx(10);
+    position: relative;
+    margin: 0 rpx(10) rpx(10);
+    display: flex;
+    flex-wrap: nowrap;
+    border-radius: rpx(8);
+    flex-direction: row;
+    box-shadow: 0 rpx(1) rpx(6) 0 rgba(0, 0, 0, 0.1);
+  }
+  .list-item {
+    padding: rpx(10) rpx(15);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    .list-speed {
+      margin-top: rpx(5);
+      border-top: 1px solid #eaeaea;
+      height: rpx(30);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-around;
+      font-size: rpx(15);
+      color: #333333;
+      .speed-item {
+        display: flex;
+        align-items: center;
+      }
+      image {
+        width: rpx(14);
+        height: rpx(14);
+        margin-right: rpx(5.4);
+      }
+    }
+    .icon-type {
+      border-width: rpx(1);
+      border-style: solid;
+      width: rpx(23);
+      height: rpx(16);
+      border-radius: rpx(4);
+      font-size: rpx(12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: rpx(4);
+    }
+    .title {
+      font-size: rpx(17);
+      color: #333333;
+      font-weight: 500;
+      text-align: left;
+      width: 60%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .default-sign {
+      position: absolute;
+      top: 0;
+      right: 0;
+      height: rpx(18);
+      width: rpx(42);
+      font-size: rpx(13);
+      background: #0096ff;
+      color: #fff;
+      border-radius: 0 rpx(8) 0 rpx(8);
+      text-align: center;
+    }
+  }
+  .list-top {
+    display: flex;
+    align-items: center;
+    margin-bottom: rpx(14);
+  }
+  .list-bottom {
+    display: flex;
+    justify-content: space-between;
+    view {
+      display: flex;
+      align-items: center;
+      text {
+        font-size: rpx(15);
+        color: #333333;
+        margin-left: rpx(9);
+      }
+      image {
+        width: rpx(14);
+        height: rpx(14);
+      }
+    }
+  }
+}
+.edit-button {
+  width: rpx(64);
+  font-size: rpx(14);
+  background: #f6f6f6;
+  border-radius: 0;
+  width: rpx(80);
+  .weui-slideview__btn {
+    padding: 0 !important;
+    text-align: center;
+  }
+  text {
+    color: #2d2d2d;
+    font-weight: 500;
+  }
+}
+.delete-button {
+  @extend .edit-button;
+  background: #f63434;
+  border-radius: 0 rpx(8) rpx(8) 0;
+  text {
+    color: #fff;
+  }
+}
+.add-server-btn {
+  margin-top: rpx(20);
+  padding: 0 rpx(10) rpx(20);
+
+  button {
+    background: #fff;
+    box-shadow: 0 1px 6px 0 rgba(0, 0, 0, 0.1);
+    border-radius: rpx(8);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: rpx(61);
+    font-size: rpx(17);
+    font-weight: 500;
+    color: #333333;
+    border: none;
+    margin-bottom: rpx(30);
+    .left-content {
+      display: flex;
+      align-items: center;
+      image {
+        height: rpx(21);
+        width: rpx(21);
+        margin-right: rpx(8);
+      }
+    }
+    .right-image {
+      width: rpx(5);
+      height: rpx(10);
+    }
+  }
+}
+.modal-desc {
+  height: rpx(96.5);
+  padding-top: rpx(38);
+  box-sizing: border-box;
+  font-size: rpx(17);
+}
+.confirm-btn {
+  background: #fff;
+  border-radius: 0 0 rpx(14) 0;
+  border: none;
+}
+.aria-btn {
+  border-radius: rpx(8);
+  padding: 0 rpx(20);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  height: rpx(80);
+  box-shadow: 0 rpx(1) rpx(6) 0 rgba(0, 0, 0, 0.1);
+  text-align: left;
+  image {
+    height: rpx(40);
+    width: rpx(40);
+    margin-right: rpx(20);
+  }
+  .title {
+    font-size: rpx(16);
+    font-weight: 500;
+    color: #333333;
+    margin-bottom: rpx(5);
+  }
+  .des {
+    font-size: rpx(14);
+    color: #cccccc;
+  }
+}
+</style>

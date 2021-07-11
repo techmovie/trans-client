@@ -1,0 +1,878 @@
+<template>
+  <view class="torrent-list">
+    <view class="fix-content {{showServerList?'active':''}}"
+          wx:if="{{serverInfo.type}}">
+      <view class="server-info {{showServerList?'active':''}}"
+            @tap="showServers">
+        <view class="icon-type"
+              wx:if="{{serverInfo.type}}"
+              style="color: {{filter.getIconColor(serverInfo.type)}};'border-color':{{filter.getIconColor(serverInfo.type)}}">{{filter.getIconType(serverInfo.type)}}</view>
+        <view class="title">{{ serverInfo.alias }}</view>
+        <view class="trans-speed">
+          <view class="upload">
+            <image lazy-load="{{true}}"
+                   src="../asset/images/upload-speed.png">
+              <view>{{filter.getSpeed(speedData.upSpeed,unit)}}</view>
+          </view>
+          <view class="download">
+            <image lazy-load="{{true}}"
+                   src="../asset/images/download-speed.png">
+              <view>{{filter.getSpeed(speedData.dlSpeed,unit)}}</view>
+          </view>
+          <view lazy-load="{{true}}"
+                class="more {{showServerList?'active':''}}">
+            <image src="../asset/images/expand.png">
+          </view>
+        </view>
+      </view>
+      <view class="server-list"
+            wx:if="{{showServerList}}">
+        <view class="list-item"
+              @tap="selectServer({{item}})"
+              wx:for="{{serverList}}"
+              wx:key="index">
+          <div class="icon-type"
+               style="color: {{filter.getIconColor(item.type)}};'border-color':{{filter.getIconColor(item.type)}}">{{filter.getIconType(item.type)}}</div>
+          <text class="server-name {{item._id===serverInfo._id?'active':''}}">{{item.alias}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="list-wrapper">
+      <view class="list-empty"
+            wx:if="{{torrentList.length===0}}">
+        <image lazy-load="{{true}}"
+               src="../asset/images/no-torrent.png">
+          <text class="empty-text">暂无种子</text>
+      </view>
+      <scroll-view wx:else
+                   @scrolltolower="getMoreTorrentList"
+                   refresher-threshold="{{80}}"
+                   refresher-default-style="black"
+                   @refresherrefresh="handlePullDown"
+                   refresher-triggered="{{isRefreshing}}"
+                   refresher-enabled="{{true}}"
+                   scroll-y="{{true}}"
+                   lower-threshold="{{80}}"
+                   style="height: calc(100vh - 148rpx);"
+                   enable-back-to-top="{{true}}">
+        <repeat for="{{torrentList}}"
+                key="index"
+                index="index"
+                item="item">
+          <view class="slide-item"
+                @tap="goDetailPage({{item}})">
+            <mp-slideview icon="{{true}}"
+                          bindbuttontap="slideButtonTap"
+                          buttons="{{[{extClass: 'edit-button',src: (item.state==='paused'||item.state==='error') ? '../../asset/images/resume.png' : '../../asset/images/pause.png', data:item},{src: '../../asset/images/delete.png',extClass: 'delete-button', data:item}]}}">
+              <view class="list-item">
+                <view class="tag"
+                      wx:if="{{item.tag || item.category}}">{{item.tag||item.category}}</view>
+                <view class="torrent-name">{{item.name}}</view>
+                <view class="list-bottom">
+                  <view class="list-bottom-left">
+                    <view class="trans-data">
+                      <view>已上传{{filter.getSize(item.uploadedData,unit)}}</view>
+                      <view>已下载{{filter.getSize(item.downloadedData,unit)}}</view>
+                      <view>{{filter.getSize(item.size,unit)}}</view>
+                    </view>
+                    <view class="progress">
+                      <view class="progress-bar"
+                            style="background: {{filter.getTorrentColor(item.state)}};width: {{item.progress*100}}%"></view>
+                    </view>
+                    <view class="torrent-speed">
+                      <view class="speed-item">
+                        <image lazy-load="{{true}}"
+                               src="../asset/images/upload-speed.png">
+                          <view>{{filter.getSpeed(item.upSpeed,unit)}}</view>
+                      </view>
+                      <view class="speed-item">
+                        <image lazy-load="{{true}}"
+                               src="../asset/images/download-speed.png">
+                          <view>{{filter.getSpeed(item.dlSpeed,unit)}}</view>
+                      </view>
+                      <view>分享率{{filter.getRatio(item.ratio) }}</view>
+                    </view>
+                  </view>
+                  <view class="list-bottom-right">
+                    <view class="download-progress">{{filter.toTruncFixed(item.progress*100,1)}}%</view>
+                    <view class="torrent-status">{{item.stateText}}</view>
+                  </view>
+                </view>
+              </view>
+            </mp-slideview>
+          </view>
+        </repeat>
+        <view class="no-more"
+              wx:if="{{showNoMore}}">没有更多了</view>
+        <view style="width:100%;height:200rpx;"
+              wx:if="{{showEmpty}}"></view>
+      </scroll-view>
+    </view>
+    <view class="page-action"
+          wx:if="{{serverInfo.type}}">
+      <button class="add-torrent"
+              @tap="goAddPage">
+        <image lazy-load="{{true}}"
+               src="../asset/images/add-torrent.png">
+      </button>
+      <button class="filter-torrent"
+              @tap="showActionSheet">
+        <image lazy-load="{{true}}"
+               src="../asset/images/filter.png">
+      </button>
+    </view>
+    <sheet class="action-sheet"
+           title="种子状态"
+           @select.user="handleSheetSelect"
+           :visible.sync="sheetVisible"
+           :selectIndex="filterIndex"
+           :btns="actionBtnData"></sheet>
+    <modal :visible.sync="modalVisible"
+           @confirm.user="deleteTorrent"
+           @cancel.user="hideModal">
+      <view class="modal-switch"
+            slot="content">
+        <text class="switch-text">是否同时删除本地数据</text>
+        <switch disabled="{{serverInfo.type==='downloadStation'}}"
+                checked="{{deleteFile}}"
+                @change="handleSwitchChange"
+                color="{{serverInfo.type==='downloadStation'?'#e0e0e0':'#0096ff'}}" />
+      </view>
+    </modal>
+  </view>
+</template>
+
+<script>
+  import filter from '../filter/index.wxs'
+  import wepy from 'wepy'
+  import Modal from '../components/modal'
+  import Sheet from '../components/action-sheet'
+  import {
+    api
+  } from '../utils'
+export default class Index extends wepy.page {
+    config = {
+      navigationBarTitleText: 'TransClient',
+      'usingComponents': {
+        'mp-slideview': '../components/slideview/slideview'
+      }
+    }
+    computed = {
+      showEmpty() {
+        return this.filter === 'active'
+      }
+    }
+
+    data = {
+      unit: 1000,
+      torrentList: [],
+      serverInfo: {
+      },
+      deleteFile: true,
+      deleteId: null,
+      page: 1,
+      pageSize: 20,
+      reverse: true,
+      filter: 'active',
+      serverId: '',
+      isActionBtnShow: false,
+      sheetVisible: false,
+      filterIndex: 1,
+      modalVisible: false,
+      speedData: null,
+      serverList: [],
+      showServerList: false,
+      isRefreshing: false,
+      showNoMore: false,
+      actionBtnData: [
+        {
+          label: '全部',
+          value: 'all'
+        },
+        {
+          label: '活动中',
+          value: 'active'
+        },
+        {
+          label: '下载中',
+          value: 'downloading'
+        },
+        {
+          label: '做种',
+          value: 'seeding'
+        },
+        {
+          label: '已暂停',
+          value: 'paused'
+        },
+        {
+          label: '错误',
+          value: 'error'
+        }
+      ]
+    }
+    wxs = {
+      filter: filter
+    }
+    components ={
+      modal: Modal,
+      sheet: Sheet
+    }
+    getClientInfo = async () => {
+      try {
+        const res = await api('get-client-info', {
+          encryptedData: this.serverInfo.encryptedData,
+          forSpeed: true
+        }, {
+          hideLoading: true
+        })
+  
+        this.speedData = res.data
+        this.$apply()
+      } catch (error) {
+        console.log(error)
+      } finally {
+        if (!this.pageHide) {
+          this.speedTimeout = setTimeout(() => {
+            this.getClientInfo()
+          }, 2000)
+          this.$apply()
+        }
+      }
+    }
+    compareActiveTorrent= () => {
+      this.activeTorrentList.forEach(element => {
+        const exsitIndex = this.torrentList.findIndex(item => item.id === element.id)
+        if (exsitIndex > 0) {
+          this.torrentList[exsitIndex] = element
+        }
+      })
+      this.$apply()
+    }
+    getActiveTorrent=async () => {
+      try {
+        const { serverInfo } = this
+        const res = await api('get-torrent-list', {
+          id: serverInfo._id,
+          page: 1,
+          pageSize: 200,
+          reverse: true,
+          encryptedData: serverInfo.encryptedData,
+          filter: this.filter
+        }, {
+          needAuth: true,
+          serverId: serverInfo._id,
+          hideLoading: true
+        })
+        this.activeTorrentList = res.data
+        this.torrentList = res.data
+      } catch (error) {
+        console.log(error)
+      } finally {
+        this.isRefreshing = false
+        this.$apply()
+        if (!this.pageHide && !this.isRefreshing) {
+          this.torrentTimeout = setTimeout(() => {
+            this.getActiveTorrent()
+          }, 3000)
+        }
+      }
+    }
+    getTorrentList= async (hideLoading = false) => {
+      const {page, reverse, filter, serverInfo, pageSize} = this
+      if (filter === 'active' || filter === 'downloading') {
+        this.getActiveTorrent()
+      } else {
+        try {
+          const res = await api('get-torrent-list', {
+            id: serverInfo._id,
+            page,
+            pageSize,
+            reverse,
+            encryptedData: serverInfo.encryptedData,
+            filter
+          }, {
+            needAuth: true,
+            serverId: serverInfo._id,
+            hideLoading
+          })
+          if (page === 1) {
+            this.torrentList = res.data
+          } else {
+            const data = this.torrentList.concat(res.data)
+            this.torrentList = data
+          }
+          this.showNoMore = res.data.length < this.pageSize
+          clearTimeout(this.torrentTimeout)
+          this.$apply()
+        } catch (error) {
+          wx.showToast({
+            icon: 'none',
+            title: error.message,
+            duration: 4000
+          })
+        } finally {
+          this.isRefreshing = false
+        }
+      }
+    }
+    resumeTorrent= async(id) => {
+      try {
+        await api('resume-torrent', {
+          id,
+          encryptedData: this.serverInfo.encryptedData
+        }, {
+          needAuth: true,
+          serverId: this.serverId
+        })
+        setTimeout(() => {
+          this.getTorrentList(true)
+        }, 600)
+        wx.showToast({
+          icon: 'none',
+          title: '成功',
+          duration: 1000
+        })
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+    showDeleteModal=(id) => {
+      this.deleteId = id
+      this.modalVisible = true
+      this.$apply()
+    }
+    pauseTorrent= async (id) => {
+      try {
+        await api('pause-torrent', {
+          id,
+          encryptedData: this.serverInfo.encryptedData
+        }, {
+          needAuth: true,
+          serverId: this.serverId
+        })
+        setTimeout(() => {
+          this.getTorrentList(true)
+        }, 600)
+        wx.showToast({
+          icon: 'none',
+          title: '暂停成功',
+          duration: 1000
+        })
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message || '暂停失败',
+          duration: 1000
+        }, 600)
+      }
+    }
+  
+    methods={
+      goDetailPage(info) {
+        const that = this
+        const index = this.serverList.findIndex(server => server._id === this.serverInfo._id)
+        let params = `?id=${info.id}&type=${this.serverInfo.type}&encryptedData=${this.serverInfo.encryptedData}&index=${index}`
+        wx.navigateTo({
+          url: `/pages/torrentInfo${params}`,
+          events: {
+            back: function(data) {
+              that.isBack = true // 无操作返回
+              if (data) {
+                const dataIndex = parseInt(data.data)
+                console.log(dataIndex)
+                const serverIndex = dataIndex > -1 ? dataIndex : 0
+                that.serverInfo = that.serverList[serverIndex]
+              }
+            }
+          }
+        })
+      },
+      async deleteTorrent  (id) {
+        try {
+          await api('delete-torrent', {
+            id: this.deleteId,
+            encryptedData: this.serverInfo.encryptedData,
+            deleteFile: this.deleteFile
+          }, {
+            needAuth: true,
+            serverId: this.serverId
+          })
+          this.getTorrentList(true)
+          wx.showToast({
+            icon: 'none',
+            title: '已删除',
+            duration: 1000
+          })
+        } catch (error) {
+          wx.showToast({
+            icon: 'none',
+            title: error.message || '删除失败，请重试',
+            duration: 1000
+          })
+        } finally {
+          this.modalVisible = false
+          this.deleteId = null
+          this.$apply()
+        }
+      },
+      handlePullDown() {
+        if (this.isRefreshing) return
+        clearTimeout(this.torrentTimeout)
+        this.isRefreshing = true
+        this.page = 1
+        this.showNoMore = false
+        this.getTorrentList()
+      },
+      slideButtonTap(e) {
+        const detail = e.detail
+        if (detail.index === 0) {
+          if (detail.data.state === 'paused' || detail.data.state === 'error') {
+            this.resumeTorrent(detail.data.id)
+          } else {
+            this.pauseTorrent(detail.data.id)
+          }
+        } else {
+          this.showDeleteModal(detail.data.id)
+        }
+      },
+      selectServer(server) {
+        if (this.serverInfo._id !== server._id) {
+          this.page = 1
+          this.serverInfo = server
+          this.showServerList = false
+          this.showNoMore = false
+          this.$apply()
+          this.getTorrentList()
+        }
+      },
+      showServers() {
+        this.showServerList = !this.showServerList
+        this.$apply()
+      },
+      getMoreTorrentList() {
+        if (this.showNoMore || this.filter === 'active' || this.filter === 'downloading') return
+        this.page += 1
+        this.getTorrentList({hideLoading: true})
+      },
+  
+      hideModal() {
+        this.modalVisible = false
+        this.deleteId = null
+      },
+      handleSwitchChange(e) {
+        this.deleteFile = e.detail.value
+      },
+      goAddPage() {
+        const that = this
+        const index = this.serverList.findIndex(server => server._id === this.serverInfo._id)
+        wx.navigateTo({
+          url: `/pages/addTorrent?id=${this.serverId}&encryptedData=${this.serverInfo.encryptedData}&index=${index}&clientType=${this.serverInfo.type}&isLocalNetwork=${this.serverInfo.isLocalNetwork}`,
+          events: {
+            back: function(data) {
+              that.isBack = true // 无操作返回
+              if (data) { // 添加种子后返回
+                const dataIndex = parseInt(data.data)
+                const serverIndex = dataIndex > -1 ? dataIndex : 0
+                that.serverInfo = that.serverList[serverIndex]
+              }
+            }
+          }
+        })
+      },
+      handleSheetSelect({data, index}) {
+        clearTimeout(this.torrentTimeout)
+        this.filterIndex = index
+        this.filter = data.value
+        this.page = 1
+        this.showNoMore = false
+        this.getTorrentList()
+      },
+      showActionSheet() {
+        this.sheetVisible = true
+        this.$apply()
+      }
+    }
+    onLoad(option) {
+      const {unit} = wx.getStorageSync('setting')
+      this.unit = unit || 1000
+      const serverInfo = wx.getStorageSync('defaultServer')
+  
+      if (!serverInfo) {
+        this.serverInfo = {}
+        this.serverList = []
+        this.torrentList = []
+        clearTimeout(this.speedTimeout)
+        clearTimeout(this.torrentTimeout)
+      } else {
+        this.serverInfo = serverInfo
+        this.getClientInfo()
+        this.getTorrentList(true)
+        this.serverList = wx.getStorageSync('servers')
+      }
+      if (!this.isLoaded) {
+        this.loadTimeout = setTimeout(() => {
+          this.isLoaded = true
+          clearTimeout(this.loadTimeout)
+        }, 1000)
+      }
+      wx.showShareMenu()
+    }
+    onHide() {
+      this.pageHide = true
+      clearTimeout(this.speedTimeout)
+      clearTimeout(this.torrentTimeout)
+    }
+    onShareAppMessage= () => {
+      return {
+        title: 'TR、QB、DE、UT、RT、DS，一手掌控',
+        path: '/pages/index',
+        imageUrl: '../asset/images/share.png'
+      }
+    }
+    onShow() {
+      this.pageHide = false
+      if (this.isLoaded && !this.isBack) {
+        this.onLoad()
+      }
+      if (this.isBack) {
+        this.getTorrentList(true)
+        this.getClientInfo()
+      }
+      this.isBack = false
+    }
+  }
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.no-more {
+  text-align: center;
+  padding-top: rpx(40);
+  padding-bottom: rpx(20);
+  font-size: rpx(13);
+  color: #9b9b9b;
+}
+.fix-content {
+  position: fixed;
+  z-index: 999;
+  top: rpx(10);
+  left: rpx(10);
+  right: rpx(10);
+  opacity: 0.96;
+  background: #ffffff;
+  border-radius: rpx(8);
+  box-shadow: 0 rpx(1) rpx(6) 0 rgba(0, 0, 0, 0.1);
+}
+.server-list {
+  padding: rpx(14) 0 rpx(20) 0;
+  border-top: rpx(1) solid #e7e7e7;
+  max-height: rpx(200);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  .list-item {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: rpx(21);
+    &:last-child {
+      margin-bottom: rpx(0);
+    }
+  }
+  .icon-type {
+    border-width: rpx(1);
+    border-style: solid;
+    width: rpx(23);
+    height: rpx(16);
+    border-radius: rpx(4);
+    font-size: rpx(12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: rpx(4);
+  }
+  .server-name {
+    font-size: 15px;
+    max-width: rpx(120);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #333333;
+    font-weight: 500;
+    &.active {
+      color: #0096ff;
+    }
+  }
+}
+.torrent-list {
+  height: 100%;
+  position: relative;
+  .list-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: rpx(135);
+    image {
+      height: rpx(52);
+      width: rpx(84);
+      margin-bottom: rpx(21);
+    }
+    text {
+      font-size: rpx(15);
+      color: #9b9b9b;
+    }
+  }
+  .server-info {
+    box-sizing: border-box;
+    height: rpx(44);
+    display: flex;
+    align-items: center;
+    padding: 0 rpx(16);
+    .icon-type {
+      border-width: rpx(1);
+      border-style: solid;
+      width: rpx(23);
+      height: rpx(16);
+      border-radius: rpx(4);
+      font-size: rpx(12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: rpx(4);
+    }
+    .title {
+      font-size: rpx(17);
+      color: #333333;
+      font-weight: 500;
+      width: 40%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .trans-speed {
+      display: flex;
+      justify-self: flex-end;
+      .upload {
+        text-align: center;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        font-size: rpx(12);
+        min-width: rpx(65);
+        color: #333333;
+        margin-right: rpx(15);
+        image {
+          width: rpx(10);
+          height: rpx(8.5);
+        }
+      }
+      .download {
+        text-align: center;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        font-size: rpx(12);
+        min-width: rpx(65);
+        color: #333333;
+        margin-right: rpx(14);
+        image {
+          width: rpx(10);
+          height: rpx(8.5);
+        }
+      }
+      .more {
+        transition: transform 0.3s ease-in-out;
+        &.active {
+          transform: rotate(180deg);
+        }
+        image {
+          width: rpx(14);
+          height: rpx(7);
+        }
+      }
+    }
+  }
+  .list-wrapper {
+    padding-top: rpx(74);
+    position: relative;
+    z-index: 10;
+    .slide-item {
+      margin: 0 rpx(10) rpx(10);
+      border-radius: rpx(8);
+      box-shadow: 0 rpx(1) rpx(6) 0 rgba(0, 0, 0, 0.1);
+      margin-bottom: rpx(10);
+      position: relative;
+      display: flex;
+      flex-wrap: nowrap;
+      flex-direction: row;
+    }
+
+    .list-item {
+      padding: rpx(10) rpx(10);
+      box-sizing: border-box;
+      display: flex;
+      position: relative;
+      flex-direction: column;
+    }
+    .tag {
+      position: absolute;
+      top: 0;
+      right: 0;
+      height: rpx(18);
+      min-width: rpx(49);
+      max-width: rpx(60);
+      box-sizing: border-box;
+      background: #ffa818;
+      border-radius: 0 rpx(8) 0 rpx(8);
+      padding: 0 rpx(3);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #fff;
+      font-size: rpx(11);
+      line-height: rpx(18);
+      text-align: center;
+    }
+    .torrent-name {
+      font-size: rpx(14);
+      color: #333333;
+      max-height: rpx(36);
+      line-height: rpx(17);
+      width: rpx(275);
+      white-space: normal;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-all;
+      margin-bottom: rpx(10);
+      overflow: hidden;
+    }
+    .list-bottom {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .list-bottom-left {
+      width: rpx(275);
+    }
+    .list-bottom-right {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      font-size: 13px;
+      color: #333333;
+    }
+    .trans-data {
+      display: flex;
+      justify-content: space-between;
+      font-size: rpx(13);
+      color: #333333;
+      font-weight: 500;
+      margin-bottom: rpx(6);
+    }
+    .progress {
+      background: #f1f1f1;
+      border-radius: rpx(4);
+      height: rpx(3);
+      position: relative;
+      margin-bottom: rpx(8);
+      .progress-bar {
+        position: absolute;
+        border-radius: rpx(4);
+        top: 0;
+        left: 0;
+        bottom: 0;
+        height: rpx(3);
+      }
+    }
+    .torrent-speed {
+      @extend .trans-data;
+      .speed-item {
+        display: flex;
+        align-items: center;
+      }
+      image {
+        width: rpx(12);
+        height: rpx(11.5);
+        margin-right: rpx(5.4);
+      }
+    }
+  }
+  .modal-switch {
+    text-align: center;
+    font-size: rpx(14);
+    height: rpx(96.5);
+    padding-top: rpx(38);
+    box-sizing: border-box;
+    text {
+      margin-right: rpx(3);
+    }
+    switch {
+      transform: scale(0.7);
+    }
+  }
+  .page-action {
+    position: fixed;
+    right: rpx(16);
+    bottom: rpx(29);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    button {
+      width: rpx(51);
+      height: rpx(51);
+      background: transparent;
+      position: relative;
+      &:first-child {
+        margin-bottom: rpx(16);
+      }
+      &::after {
+        border: none;
+        box-shadow: none;
+      }
+      image {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: rpx(51);
+        height: rpx(51);
+      }
+    }
+  }
+}
+</style>
+<style lang="scss">
+.torrent-list {
+  .edit-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    .weui-slideview__btn {
+      background: #0096ff !important;
+    }
+  }
+  .delete-button {
+    @extend .edit-button;
+    .weui-slideview__btn {
+      background: #f63434 !important;
+    }
+    image {
+      width: rpx(20);
+      height: rpx(22.3);
+      margin-bottom: rpx(5.7);
+    }
+  }
+  .weui-slideview_icon {
+    .weui-slideview__btn__wrp {
+      &:first-child {
+        padding-left: 0 !important;
+      }
+    }
+  }
+}
+</style>

@@ -1,0 +1,590 @@
+<template>
+  <div class="add-server-page">
+    <form bindsubmit="addOrEditServer">
+      <div class="form-container">
+        <div class="form-item">
+          <span>客户端类型</span>
+          <view @tap="handleTypeTap"
+                class="type-content">{{formData.type}}</view>
+        </div>
+      </div>
+      <div class="form-container">
+        <div class="form-item">
+          <span>服务器地址</span>
+          <input @input="handleUrlChange"
+                 value="{{formData.url}}"
+                 placeholder="example.com"
+                 placeholder-class="input-placeholder">
+        </div>
+        <div class="form-item"
+             @tap="handleLocalTap">
+          <span>是否为局域网</span>
+          <checkbox color="#0280FF"
+                    checked="{{formData.isLocalNetwork}}"></checkbox>
+        </div>
+        <div class="form-item"
+             @tap="handleHttpsTap">
+          <span>是否为HTTPS</span>
+          <checkbox color="#0280FF"
+                    checked="{{formData.isHttps}}"></checkbox>
+        </div>
+        <div class="form-item">
+          <span>端口号</span>
+          <input @input="handlePortChange"
+                 placeholder="1-65535"
+                 maxlength="5"
+                 value="{{formData.port}}"
+                 type="number">
+        </div>
+        <div class="form-item">
+          <span>别名</span>
+          <input @input="handleAliasChange"
+                 @blur="handleAliasBlur"
+                 value="{{formData.alias}}"
+                 maxlength="12"
+                 placeholder="必填"
+                 placeholder-class="input-placeholder">
+        </div>
+      </div>
+      <div class="form-container">
+        <div class="form-item"
+             wx:if="{{formData.type!=='deluge'}}">
+          <span>用户名</span>
+          <input @input="handleUsernameChange"
+                 value="{{formData.userName}}"
+                 maxlength="25"
+                 placeholder-class="input-placeholder"
+                 adjust-position="{{true}}">
+        </div>
+        <div class="form-item">
+          <span>密码</span>
+          <input @input="handlePasswordChange"
+                 password="{{true}}"
+                 maxlength="30"
+                 value="{{formData.password}}"
+                 placeholder-class="input-placeholder"
+                 adjust-position="{{true}}">
+        </div>
+      </div>
+      <div class="form-container">
+        <div class="form-item"
+             @tap="handleDefaultTap">
+          <span>设为默认</span>
+          <checkbox checked="{{formData.isDefault}}"
+                    color="#0280FF"></checkbox>
+        </div>
+      </div>
+      <view class="add-view">
+        <ad unit-id="adunit-1454addd408c5948"
+            ad-intervals="{{35}}"></ad>
+      </view>
+      <view class="btn-area">
+        <button @tap="testServer"
+                plain="{{true}}">
+          <view class="test-icon"
+                wx:if="{{isTested}}">
+            <image src="../asset/images/test-success.png"
+                   class="test-image"
+                   wx:if="{{isServerOK}}">
+              <image src="../asset/images/test-fail.png"
+                     class="test-image"
+                     wx:else>
+          </view>
+          <view>测试服务器</view>
+        </button>
+        <button form-type="submit"
+                plain="{{true}}"
+                class="{{(!isServerOK)?'submit-disable':''}}"
+                disabled="{{!isServerOK}}">{{isEditingServer?'修改':'确认添加'}}</button>
+      </view>
+      <view class="attention">
+        <button plain="{{true}}"
+                @tap="goHelpPage">查看帮助</button>
+        <button plain="{{true}}"
+                @tap="goNetworkSetting">公网设置</button>
+      </view>
+    </form>
+    <view class="picker-mask"
+          catchtouchmove="handleMaskTouch"
+          wx:if="{{showPicker}}">
+      <div class="picker-view"
+           animation="{{animationData}}">
+        <div class="button-area">
+          <button @tap="hidePicker">取消</button>
+          <button @tap="confirmPickerSelect">确定</button>
+        </div>
+        <picker-view indicator-class="selected-item"
+                     style="height: 290rpx;"
+                     value="{{[selectIndex]}}"
+                     @change="bindPickerChange">
+          <picker-view-column>
+            <view wx:for="{{typeList}}"
+                  wx:key="index"
+                  class="picker-item">{{item}}</view>
+          </picker-view-column>
+        </picker-view>
+      </div>
+    </view>
+  </div>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import {
+    api
+  } from '../utils'
+  export default class addServer extends wepy.page {
+    config = {
+      navigationBarTitleText: '添加服务器'
+    }
+    data = {
+      typeList: ['qbittorrent', 'transmission', 'deluge', 'rutorrent', 'downloadStation', 'utorrent'],
+      animationData: null,
+      showPicker: false,
+      selectIndex: 0,
+      isServerOK: false,
+      isTested: false,
+      isEditingServer: false,
+      serverId: '',
+      aliasExsit: false,
+      formData: {
+        url: '',
+        isHttps: false,
+        port: '',
+        alias: '',
+        userName: '',
+        password: '',
+        isDefault: false,
+        isLocalNetwork: false,
+        type: 'qbittorrent'
+      }
+    }
+    isAliasExsit= async () => {
+      try {
+        const res = await api('is-alias-exsit', {
+          id: this.serverId || '',
+          alias: this.formData.alias
+        }, {
+          hideLoading: true
+        })
+        if (res.code === -1) {
+          throw new Error('已有重复别名')
+        }
+        return false
+      } catch (error) {
+        return true
+      }
+    }
+    getServerInfo= async (params) => {
+      try {
+        const res = await api('get-server-info', params)
+        delete res.urlAlias
+        delete res.password
+        const {url, port, isHttps, type, userName, isLocalNetwork} = res
+        this.formData.url = url
+        this.formData.port = port
+        this.formData.isHttps = isHttps
+        this.formData.type = type === 'qbitorrent' ? 'qbittorrent' : type
+        this.formData.userName = userName
+        this.formData.isLocalNetwork = isLocalNetwork
+        this.$apply()
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+    confirmAddServer= async () => {
+      const isAliasExsit = await this.isAliasExsit()
+      if (isAliasExsit) {
+        wx.showToast({
+          icon: 'none',
+          title: '已有重复别名,请重新修改',
+          duration: 1000
+        })
+        return
+      }
+      const params = {
+        confirm: true,
+        ...this.formData
+      }
+      try {
+        await api('test-server', params)
+        wx.showToast({
+          icon: 'none',
+          title: '服务器添加成功',
+          duration: 1000
+        })
+        const event = this.$wxpage.getOpenerEventChannel()
+        event.emit('back')
+        wx.navigateBack()
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+    confirmEditServer= async () => {
+      const isAliasExsit = await this.isAliasExsit()
+      if (isAliasExsit) {
+        wx.showToast({
+          icon: 'none',
+          title: '已有重复别名,请重新修改',
+          duration: 1000
+        })
+        return
+      }
+      const params = Object.assign({
+        id: this.serverId
+      }, this.formData)
+      try {
+        await api('edit-server', params)
+        wx.showToast({
+          icon: 'none',
+          title: '服务器编辑成功',
+          duration: 1000
+        })
+        const event = this.$wxpage.getOpenerEventChannel()
+        event.emit('back')
+        wx.navigateBack()
+      } catch (error) {
+        wx.showToast({
+          icon: 'none',
+          title: error.message,
+          duration: 1000
+        })
+      }
+    }
+    onLoad(params) {
+      if (params.id) {
+        wx.setNavigationBarTitle({
+          title: '编辑服务器',
+          success: function(res) {
+            console.log(res)
+          }
+        })
+        this.isEditingServer = true
+        this.serverId = params.id
+        this.formData.alias = params.alias
+        this.formData.isDefault = params.isDefault === 'true'
+        this.$apply()
+        this.getServerInfo({encryptedData: params.encryptedData})
+      }
+    }
+    methods = {
+      goNetworkSetting() {
+        wx.navigateTo({
+          url: '/pages/networkSetting'
+        })
+      },
+      goHelpPage() {
+        wx.navigateTo({
+          url: '/pages/help'
+        })
+      },
+      async handleAliasBlur() {
+        const isAliasExsit = await this.isAliasExsit()
+        this.aliasExsit = isAliasExsit
+        this.$apply()
+        if (isAliasExsit) {
+          wx.showToast({
+            icon: 'none',
+            title: '已有重复别名,请重新修改',
+            duration: 1000
+          })
+        }
+      },
+      addOrEditServer() {
+        if (this.isEditingServer) {
+          this.confirmEditServer()
+        } else {
+          this.confirmAddServer()
+        }
+      },
+      handleUrlChange(e) {
+        this.formData.url = e.detail.value
+        this.$apply()
+      },
+      handlePortChange(e) {
+        if (e.detail.value < 1 || e.detail.value > 65535) {
+          wx.showToast({
+            icon: 'none',
+            title: '请输入正确的端口号',
+            duration: 1000
+          })
+          if (e.detail.value > 65535) {
+            this.formData.port = e.detail.value.slice(0, 4)
+            return e.detail.value.slice(0, 4)
+          } else {
+            this.formData.port = ''
+            return ''
+          }
+        }
+        this.formData.port = e.detail.value
+        this.$apply()
+      },
+      handleLocalTap(e) {
+        this.formData.isLocalNetwork = !this.formData.isLocalNetwork
+      },
+      handleAliasChange(e) {
+        this.formData.alias = e.detail.value.replace(/ /g, '')
+        this.$apply()
+      },
+      handleUsernameChange(e) {
+        this.formData.userName = e.detail.value
+        this.$apply()
+      },
+      handlePasswordChange(e) {
+        this.formData.password = e.detail.value
+        this.$apply()
+      },
+      bindPickerChange(e) {
+        this.selectIndex = e.detail.value[0]
+        this.$apply()
+      },
+      handleMaskTouch() {
+        return false
+      },
+      handleTypeTap(e) {
+        if (!this.showPicker) {
+          const animation = wx.createAnimation({
+            duration: 400,
+            timingFunction: 'ease-in-out'
+          })
+          this.showPicker = true
+          this.$apply()
+          animation.translateY(-188).step()
+          this.animationData = animation.export()
+        }
+        this.$apply()
+      },
+      hidePicker() {
+        this.showPicker = false
+        this.animationData = null
+        this.selectIndex = this.typeList.indexOf(this.formData.type)
+        this.$apply()
+      },
+      confirmPickerSelect() {
+        this.formData.type = this.typeList[this.selectIndex]
+        this.showPicker = false
+        this.animationData = null
+        this.$apply()
+      },
+      handleDefaultTap() {
+        this.formData.isDefault = !this.formData.isDefault
+      },
+      handleHttpsTap() {
+        this.formData.isHttps = !this.formData.isHttps
+      },
+
+      async testServer() {
+        const {
+          url,
+          type,
+          alias
+        } = this.formData
+        try {
+          if (!url || !type || !alias) {
+            throw new Error('请完善服务器信息')
+          }
+          const res = await api('test-server', this.formData)
+          if (!res.data) {
+            this.isTested = true
+            this.isServerOK = false
+            this.$apply()
+            throw new Error('服务器连接失败')
+          }
+          wx.showToast({
+            icon: 'none',
+            title: '服务器连接成功',
+            duration: 1000
+          })
+          this.auth = res.data.auth
+          this.isTested = true
+          this.isServerOK = true
+          this.$apply()
+        } catch (error) {
+          wx.showToast({
+            icon: 'none',
+            title: error.message,
+            duration: 1000
+          })
+        }
+      }
+  
+    }
+  }
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.add-view {
+  padding-top: rpx(15);
+}
+.attention {
+  padding: rpx(20) 0 rpx(0);
+  font-size: rpx(12);
+  color: #bbb;
+  line-height: rpx(17);
+  button {
+    background: transparent;
+    border: none;
+    color: #0096ff;
+    font-size: rpx(14);
+  }
+}
+.add-server-page {
+  padding: rpx(10);
+  padding-bottom: rpx(30);
+  display: flex;
+  box-sizing: border-box;
+  form {
+    width: 100%;
+  }
+}
+.input-placeholder {
+  font-size: rpx(14);
+  color: #c6c6c6;
+}
+.form-container {
+  background: #ffffff;
+  box-shadow: 0 rpx(1) rpx(6) 0 rgba(0, 0, 0, 0.1);
+  border-radius: rpx(8);
+  margin-bottom: rpx(10);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.form-item {
+  height: rpx(44);
+  border-bottom: rpx(1) solid #f1f1f1;
+  display: flex;
+  align-items: center;
+  padding-left: rpx(15);
+  justify-content: space-between;
+  span {
+    margin-right: rpx(16);
+    font-weight: 500;
+  }
+  input,
+  picker {
+    flex: 1;
+    font-size: rpx(14);
+    color: #333;
+    height: 100%;
+  }
+  picker {
+    display: flex;
+    align-items: center;
+  }
+  checkbox {
+    margin-right: rpx(15);
+  }
+}
+.picker-mask {
+  background: rgba(0, 0, 0, 0.4);
+  transition: all 0.4s ease-in-out 0;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  opacity: 1;
+  pointer-events: auto;
+}
+.picker-view {
+  position: absolute;
+  bottom: rpx(-188);
+  left: 0;
+  right: 0;
+  height: rpx(188);
+  background: #fff;
+  border-radius: rpx(15) rpx(15) 0 0;
+}
+.button-area {
+  height: rpx(42);
+  padding: 0 rpx(19);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: rpx(1) solid #f1f1f1;
+  button {
+    font-size: rpx(16);
+    color: #999999;
+    background: none;
+    margin: 0;
+    &:last-child {
+      color: #333333;
+    }
+    &:after {
+      border: none;
+    }
+  }
+}
+.picker-item {
+  height: rpx(35);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.selected-item {
+  font-size: rpx(22);
+  line-height: rpx(35);
+  height: rpx(35);
+  color: #333333;
+}
+.type-content {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+.btn-area {
+  padding-top: rpx(42);
+  button {
+    background: #fff;
+    border-radius: rpx(4);
+    font-size: rpx(17);
+    color: #0096ff;
+    font-weight: 500;
+    height: rpx(44);
+    border: none;
+    &:first-child {
+      margin-bottom: rpx(15);
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      &:after {
+        border: rpx(1) solid #0096ff;
+      }
+    }
+    &:last-child {
+      background-image: linear-gradient(90deg, #00a9ff 0%, #0280ff 100%);
+      box-shadow: 0 rpx(2) rpx(4) 0 rgba(0, 101, 230, 0.43);
+      color: #fff;
+      &.submit-disable {
+        background: #e0e0e0;
+        border: none;
+        box-shadow: none;
+        color: #808080;
+        background-image: linear-gradient(90deg, #e0e0e0 0%, #e0e0e0 100%);
+      }
+    }
+  }
+  .test-icon {
+    display: flex;
+    align-items: center;
+    margin-right: rpx(11);
+  }
+  .test-image {
+    width: rpx(21);
+    height: rpx(21);
+  }
+}
+</style>

@@ -1,0 +1,110 @@
+<template>
+  <view class="modal-container"
+        wx:if="{{visible}}">
+    <view class="modal-mask">
+      <view class="modal-content">
+        <view class="modal-text">
+          <slot name="content"></slot>
+        </view>
+        <view class="action-btn">
+          <view class="btn-wrapper">
+            <button slot="confirmBtn"
+                    plain="{{true}}"
+                    @tap="cancel">取消</button>
+          </view>
+          <view @tap="confirm"
+                class="btn-wrapper">
+            <slot name="confirmBtn">
+              <button plain="{{true}}">确定</button>
+            </slot>
+          </view>
+
+        </view>
+      </view>
+
+    </view>
+
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  export default class Modal extends wepy.component {
+    props= {
+      visible: {
+        type: Boolean,
+        default: false
+      }
+    }
+    data = {
+  
+    }
+    onLoad() {
+    }
+    methods={
+      cancel() {
+        this.$emit('cancel')
+      },
+      confirm() {
+        this.$emit('confirm')
+      }
+    }
+  }
+</script>
+<style lang="scss" scoped>
+@import '../asset/sass/index.scss';
+.modal-mask {
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  transition: all 0.4s ease-in-out 0;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  pointer-events: auto;
+}
+.modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: rpx(270);
+  background: #fff;
+  border-radius: rpx(14);
+  font-size: rpx(17);
+}
+.modal-text {
+  font-size: rpx(14);
+  padding: 0 rpx(20) 0 rpx(20);
+  color: #333333;
+  box-sizing: border-box;
+  border-bottom: rpx(1) solid #eaeaea;
+}
+.action-btn {
+  display: flex;
+  justify-content: space-between;
+  height: rpx(44.5);
+  .btn-wrapper {
+    width: 50%;
+    height: rpx(44.5);
+    background: #fff;
+    border-radius: 0 0 rpx(14) 0;
+    &:first-child {
+      border-right: 1px solid #eaeaea;
+      border-radius: 0 0 0 rpx(14);
+    }
+  }
+  button {
+    background: #fff;
+    border: none;
+    width: 50%;
+    height: rpx(44.5);
+    &::after {
+      border: none;
+    }
+  }
+}
+</style>
